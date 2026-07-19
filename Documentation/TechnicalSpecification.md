@@ -414,3 +414,13 @@ Unit tests MUST additionally cover every formula boundary, validation error,
 enum wire value, Codable round trip, window mode, candidate tie, and fresh-air
 threshold condition.
 
+## 13. Implementation sequence
+
+Implementation is divided into one-hour TDD stages. Each coding stage starts
+with a failing Swift Testing test, adds the minimum production behavior needed
+to pass, refactors only while green, runs the complete build and test suite, and
+ends with a focused commit.
+
+The stage index and individual handoff documents are maintained in
+[`Documentation/ImplementationStages/`](ImplementationStages/README.md).
+

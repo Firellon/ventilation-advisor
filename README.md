@@ -10,6 +10,8 @@ the consuming application.
 
 The package is currently being implemented against the normative
 [technical specification](Documentation/TechnicalSpecification.md).
+The work is split into reviewable, one-hour
+[implementation stages](Documentation/ImplementationStages/README.md).
 
 ## Requirements
 
