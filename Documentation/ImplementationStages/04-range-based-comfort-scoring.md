@@ -25,6 +25,31 @@ public enum ComfortScorer {
 }
 ```
 
+## Internal range representation
+
+Keep `ComfortRange` as the public Codable model. Add an internal range-validation
+helper in `ComfortScorer.swift` with this responsibility:
+
+```swift
+private enum ComfortRangeKind {
+    case temperature
+    case relativeHumidity
+    case dewPoint
+}
+
+private func validatedClosedRange(
+    _ range: ComfortRange,
+    field: String,
+    kind: ComfortRangeKind
+) throws -> ClosedRange<Double>
+```
+
+The helper validates finite bounds, strict ordering, and the domain rules for
+the selected kind before constructing `range.minimum...range.maximum`. All
+scoring penalty functions consume the returned `ClosedRange<Double>` and use
+`lowerBound`, `upperBound`, and `contains(_:)`. Never construct a
+`ClosedRange<Double>` from unvalidated caller data.
+
 ## Red-green-refactor sequence
 
 1. RED: test zero temperature penalty inside 18...24, a cold value below 18,
@@ -40,8 +65,11 @@ public enum ComfortScorer {
    accepted temperature +2 and +8.
 6. RED: cover non-finite conditions, invalid temperature/RH values, reversed or
    equal ranges, out-of-domain ranges, and nonpositive fresh-air intervals.
-7. Refactor the three piecewise calculations into focused internal functions;
-   keep `score` as the only public scoring entry point.
+   Implement `validatedClosedRange(_:field:kind:)` so every malformed range
+   throws `.invalidComfortRange` before `ClosedRange<Double>` construction.
+7. Refactor the three piecewise calculations into focused internal functions
+   that consume validated `ClosedRange<Double>` values; keep `score` as the only
+   public scoring entry point.
 
 ## Acceptance criteria
 
@@ -49,6 +77,10 @@ public enum ComfortScorer {
 - Every boundary follows the inclusive/exclusive rules in the specification.
 - RH and dew-point modes can produce different scores for identical conditions.
 - Invalid settings throw typed errors and are never silently normalized.
+- Public Codable settings retain the `ComfortRange` JSON shape while scoring
+  internals use `ClosedRange<Double>`.
+- No `ClosedRange<Double>` is constructed before its source bounds pass
+  validation.
 - `swift build`, `swift test`, and `git diff --check` pass.
 
 **Commit:** `feat: add configurable comfort scoring`

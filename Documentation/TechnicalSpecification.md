@@ -178,6 +178,14 @@ VentilationAdvice
 `ComfortSettings.standard` MUST be 18...24 C, 40...60% RH, and a 180-minute
 fresh-air interval.
 
+`ComfortRange` remains the public domain and Codable representation. After
+validating a comfort range for finiteness, ordering, and its metric-specific
+domain, scoring internals MUST convert it to `ClosedRange<Double>` and use the
+standard library range for containment and bound access. Conversion MUST NOT
+precede validation; malformed caller data must produce
+`VentilationAdvisorError.invalidComfortRange` rather than a range-construction
+precondition failure.
+
 Example comfort-settings JSON:
 
 ```json
