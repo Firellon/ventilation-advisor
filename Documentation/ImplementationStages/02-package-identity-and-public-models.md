@@ -263,39 +263,25 @@ or:
 }
 ```
 
-## Task 1: Rename the package without moving directories
+## Task 1: Rename the package — DONE
+
+**Status:** Complete. The package, product, module, and targets are named
+`VentilationAdvisor`, and the directories were normalized to UpperCamelCase in
+the same step rather than later at Task 6.
+
+**Superseded guidance (kept for rationale):** this task originally renamed the
+package while leaving the generated lowercase directories in place behind
+temporary `path: "Sources/ventilation-advisor"` and
+`path: "Tests/ventilation-advisorTests"` target entries, so that the first TDD
+failure would be a missing model rather than failed SwiftPM source discovery.
+That goal is satisfied directly by the normalized directories, so no `path:`
+overrides exist in `Package.swift` and none should be added.
 
 **Files:**
 
-- Modify `Package.swift`.
-- Delete `Tests/ventilation-advisorTests/ventilation_advisorTests.swift`.
-- Create `Tests/ventilation-advisorTests/ModelsTests.swift`.
-
-Use temporary explicit paths:
-
-```swift
-let package = Package(
-    name: "VentilationAdvisor",
-    products: [
-        .library(
-            name: "VentilationAdvisor",
-            targets: ["VentilationAdvisor"]
-        ),
-    ],
-    targets: [
-        .target(
-            name: "VentilationAdvisor",
-            path: "Sources/ventilation-advisor"
-        ),
-        .testTarget(
-            name: "VentilationAdvisorTests",
-            dependencies: ["VentilationAdvisor"],
-            path: "Tests/ventilation-advisorTests"
-        ),
-    ],
-    swiftLanguageModes: [.v6]
-)
-```
+- Modify `Package.swift`. — done
+- Delete the generated test placeholder. — done
+- Create `Tests/VentilationAdvisorTests/ModelsTests.swift`. — done
 
 Delete the generated test before adding:
 
@@ -333,23 +319,33 @@ func standardComfortSettingsUseDocumentedDefaults() {
 Run `& $swift test`. Expected RED: `ComfortSettings` and `TemperatureRange` are
 missing while the `VentilationAdvisor` import succeeds.
 
-## Task 2: Add comfort-setting model shapes
+## Task 2: Add comfort-setting model shapes — DONE
+
+**Status:** Complete. The defaults test passes.
 
 **Files:**
 
-- Create `Sources/ventilation-advisor/Models/ComfortSettings.swift`.
+- Create `Sources/VentilationAdvisor/Models/ComfortSettings.swift`. — done
 
 Implement the exact public settings declarations and `.standard`. Do not add
 custom Codable yet. Run `& $swift test`; the defaults test must pass.
+
+The generated source placeholder was removed here rather than at Task 6, since
+`ComfortSettings.swift` now keeps the target from being source-less.
+
+Note for later tasks: `Measurement` equality converts between units, so
+`0 °C == 273.15 K` is `true`. Asserting a bound's `.unit` is therefore
+unnecessary for value equality, but a "round-trip without normalization" check
+needs more than `==` to prove the original unit survived.
 
 ## Task 3: Lock measurement and humidity-preference JSON
 
 **Files:**
 
 - Create
-  `Sources/ventilation-advisor/Models/TemperatureMeasurementCoding.swift`.
-- Modify `Sources/ventilation-advisor/Models/ComfortSettings.swift`.
-- Modify `Tests/ventilation-advisorTests/ModelsTests.swift`.
+  `Sources/VentilationAdvisor/Models/TemperatureMeasurementCoding.swift`.
+- Modify `Sources/VentilationAdvisor/Models/ComfortSettings.swift`.
+- Modify `Tests/VentilationAdvisorTests/ModelsTests.swift`.
 
 Use an encoder configured with `.sortedKeys` for exact JSON assertions. RED tests
 must assert:
@@ -370,9 +366,9 @@ extensions where doing so preserves desired synthesized initializers.
 
 **Files:**
 
-- Create `Sources/ventilation-advisor/Models/Conditions.swift`.
-- Create `Sources/ventilation-advisor/Models/VentilationAdvice.swift`.
-- Modify `Tests/ventilation-advisorTests/ModelsTests.swift`.
+- Create `Sources/VentilationAdvisor/Models/Conditions.swift`.
+- Create `Sources/VentilationAdvisor/Models/VentilationAdvice.swift`.
+- Modify `Tests/VentilationAdvisorTests/ModelsTests.swift`.
 
 RED: parameterize exact encoding for:
 
@@ -401,8 +397,8 @@ measurement codec.
 **Files:**
 
 - Modify all four model files.
-- Create `Sources/ventilation-advisor/VentilationAdvisorError.swift`.
-- Modify `Tests/ventilation-advisorTests/ModelsTests.swift`.
+- Create `Sources/VentilationAdvisor/VentilationAdvisorError.swift`.
+- Modify `Tests/VentilationAdvisorTests/ModelsTests.swift`.
 
 Add:
 
@@ -475,9 +471,10 @@ let errors: [VentilationAdvisorError] = [
 
 Do not add validation or throwing production behavior.
 
-## Task 6: Normalize directories and checkpoint
+## Task 6: Final checkpoint
 
-Only after all model tests are green:
+**Superseded guidance (kept for rationale):** this task originally normalized
+the directories and removed the temporary target paths at the very end:
 
 ```powershell
 git mv Sources/ventilation-advisor Sources/VentilationAdvisor
@@ -485,18 +482,28 @@ git mv Tests/ventilation-advisorTests Tests/VentilationAdvisorTests
 git rm Sources/VentilationAdvisor/ventilation_advisor.swift
 ```
 
-Remove temporary target paths from `Package.swift`, then run:
+All three landed earlier — the directory moves at Task 1 and the placeholder
+removal at Task 2 — and `Package.swift` never gained temporary paths to remove.
+
+What remains for this task, once all model tests are green:
 
 ```powershell
 & $swift build
 & $swift test
-git diff --check
 rg -n "Int64|temperatureC|dewPointC|TempC|temperatureDelta|dewPointDelta|scoreDelta|HumidityMetric|ComfortRange|ventilation_advisor|ventilation-advisorTests" `
     Package.swift Sources Tests
 ```
 
-Expected: build and tests pass, the diff check is clean, and the search returns
-no matches.
+Expected: build and tests pass, and the search returns no matches.
+
+**Open conflict — `git diff --check`.** The original checkpoint also ran
+`git diff --check`. That check reports trailing whitespace, which
+`.swift-format`'s `indentBlankLines` deliberately produces on blank lines inside
+declarations. `.editorconfig` now sets `trim_trailing_whitespace = false` so
+editors stop fighting the formatter, but `git diff --check` does not read
+`.editorconfig` and still exits non-zero. Either scope the check
+(`git config core.whitespace -trailing-space`) or drop it as a criterion; until
+then it cannot pass alongside the current formatter configuration.
 
 ## Session acceptance checklist
 
