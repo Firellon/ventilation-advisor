@@ -31,8 +31,13 @@ below are an intentional Swift-specific design.
 - Test target name: `VentilationAdvisorTests`.
 - Supported execution architecture: 64-bit.
 - Third-party dependencies: none.
+- Foundation `Measurement<UnitTemperature>` is the public absolute-temperature
+  representation.
 - Tests MUST use Swift Testing.
-- Public value types MUST conform to `Codable`, `Equatable`, and `Sendable`.
+- Public domain data models MUST conform to `Codable`, `Equatable`, and
+  `Sendable`.
+- `VentilationAdvisorError` MUST conform to `Error`, `Equatable`, and
+  `Sendable`; errors are not part of the Codable interchange model.
 - Public stateless namespaces MUST be caseless enums.
 - Public APIs MUST use `Int`, not fixed-width integer types, for timestamps,
   intervals, and recommended minutes.
@@ -49,6 +54,8 @@ Tests/VentilationAdvisorTests/
 
 ## 3. Public API
 
+Declarations containing measurements import Foundation.
+
 ```swift
 public struct VentilationAdvisor: Sendable {
     public init()
@@ -59,13 +66,13 @@ public struct VentilationAdvisor: Sendable {
 ```swift
 public enum DewPointCalculator {
     public static func dewPoint(
-        temperatureC: Double,
+        temperature: Measurement<UnitTemperature>,
         relativeHumidityPercent: Double
-    ) throws -> Double
+    ) throws -> Measurement<UnitTemperature>
 
     public static func relativeHumidity(
-        temperatureC: Double,
-        dewPointC: Double
+        temperature: Measurement<UnitTemperature>,
+        dewPoint: Measurement<UnitTemperature>
     ) throws -> Double
 }
 ```
@@ -73,9 +80,9 @@ public enum DewPointCalculator {
 ```swift
 public enum ComfortScorer {
     public static func score(
-        temperatureC: Double,
+        temperature: Measurement<UnitTemperature>,
         relativeHumidityPercent: Double,
-        dewPointC: Double,
+        dewPoint: Measurement<UnitTemperature>,
         settings: ComfortSettings
     ) throws -> Double
 }
@@ -97,41 +104,40 @@ remain internal.
 
 ## 4. Models and wire representation
 
-All JSON keys use the Swift property names shown below. Enum raw values use the
-uppercase strings shown in parentheses.
+All JSON keys use the Swift property names shown below. Enum discriminator and
+raw values use the uppercase strings shown in parentheses.
 
 ```text
-ComfortRange
-  minimum: Double
-  maximum: Double
+TemperatureRange
+  minimum: Measurement<UnitTemperature>
+  maximum: Measurement<UnitTemperature>
 
-HumidityMetric
-  relativeHumidity (RELATIVE_HUMIDITY)
-  dewPoint (DEW_POINT)
+RelativeHumidityRange
+  minimumPercent: Double
+  maximumPercent: Double
 
 HumidityComfortPreference
-  metric: HumidityMetric
-  range: ComfortRange
+  relativeHumidity(RelativeHumidityRange) (RELATIVE_HUMIDITY)
+  dewPoint(TemperatureRange) (DEW_POINT)
 
 ComfortSettings
-  temperatureRangeC: ComfortRange
+  temperatureRange: TemperatureRange
   humidityPreference: HumidityComfortPreference
   freshAirIntervalMinutes: Int?
 
 IndoorConditions
-  temperatureC: Double
+  temperature: Measurement<UnitTemperature>
   relativeHumidityPercent: Double
 
 OutdoorConditions
-  temperatureC: Double
+  temperature: Measurement<UnitTemperature>
   relativeHumidityPercent: Double
-  dewPointC: Double?
+  dewPoint: Measurement<UnitTemperature>?
 
 WindowState
   closed (CLOSED)
   tilted (TILTED)
   open (OPEN)
-  crossVentilation (CROSS_VENTILATION)
 
 VentilationInput
   indoor: IndoorConditions
@@ -143,32 +149,29 @@ VentilationInput
 
 Recommendation
   openWindows (OPEN_WINDOWS)
+  closeWindows (CLOSE_WINDOWS)
   keepWindowsOpen (KEEP_WINDOWS_OPEN)
-  closeWindowsNow (CLOSE_WINDOWS_NOW)
-  keepClosed (KEEP_CLOSED)
+  keepWindowsClosed (KEEP_WINDOWS_CLOSED)
 
 PredictedConditions
-  temperatureC: Double
+  temperature: Measurement<UnitTemperature>
   relativeHumidityPercent: Double
-  dewPointC: Double
+  dewPoint: Measurement<UnitTemperature>
 
 VentilationAdvice
   recommendation: Recommendation
   recommendedMinutes: Int
-  currentIndoorTempC: Double
+  currentIndoorTemperature: Measurement<UnitTemperature>
   currentIndoorRelativeHumidityPercent: Double
-  currentIndoorDewPointC: Double
-  outdoorTempC: Double
+  currentIndoorDewPoint: Measurement<UnitTemperature>
+  outdoorTemperature: Measurement<UnitTemperature>
   outdoorRelativeHumidityPercent: Double
-  outdoorDewPointC: Double
-  predictedTempC: Double
+  outdoorDewPoint: Measurement<UnitTemperature>
+  predictedTemperature: Measurement<UnitTemperature>
   predictedRelativeHumidityPercent: Double
-  predictedDewPointC: Double
+  predictedDewPoint: Measurement<UnitTemperature>
   currentScore: Double
   predictedScore: Double
-  temperatureDeltaC: Double
-  dewPointDeltaC: Double
-  scoreDelta: Double
   shortReason: String
   detailedReason: String
 ```
@@ -176,14 +179,33 @@ VentilationAdvice
 `ComfortSettings.standard` MUST be 18...24 C, 40...60% RH, and a 180-minute
 fresh-air interval.
 
+`TemperatureRange` bounds MAY use different supported units. After validating
+and converting both bounds to Celsius, scoring internals MUST construct a
+`ClosedRange<Double>` and use it for containment and bound access.
+`RelativeHumidityRange` follows the same pattern without unit conversion.
+Conversion to `ClosedRange<Double>` MUST NOT precede validation.
+
+Every encoded absolute temperature uses this exact shape:
+
+```json
+{ "value": 68.0, "unit": "FAHRENHEIT" }
+```
+
+Allowed unit strings are `CELSIUS`, `FAHRENHEIT`, and `KELVIN`. Public models
+MUST implement Codable using a shared internal measurement codec; they MUST NOT
+expose Foundation's synthesized `Measurement` representation as package JSON.
+
 Example comfort-settings JSON:
 
 ```json
 {
-  "temperatureRangeC": { "minimum": 18.0, "maximum": 24.0 },
+  "temperatureRange": {
+    "minimum": { "value": 18.0, "unit": "CELSIUS" },
+    "maximum": { "value": 24.0, "unit": "CELSIUS" }
+  },
   "humidityPreference": {
     "metric": "RELATIVE_HUMIDITY",
-    "range": { "minimum": 40.0, "maximum": 60.0 }
+    "range": { "minimumPercent": 40.0, "maximumPercent": 60.0 }
   },
   "freshAirIntervalMinutes": 180
 }
@@ -191,18 +213,36 @@ Example comfort-settings JSON:
 
 ## 5. Validation and errors
 
-Public operations MUST throw `VentilationAdvisorError`; they MUST NOT trap or
-silently repair invalid caller data.
+Public advisor, predictor, scorer, and psychrometric operations MUST throw
+`VentilationAdvisorError`; they MUST NOT trap or silently repair invalid caller
+data. Codable failures use the standard `EncodingError` and `DecodingError`
+required by those protocols.
 
 Required error categories:
 
 ```swift
 public enum VentilationAdvisorError: Error, Equatable, Sendable {
     case nonFiniteValue(field: String)
-    case temperatureOutOfRange(field: String, value: Double)
+    case unsupportedTemperatureUnit(field: String, symbol: String)
+    case temperatureOutOfRange(
+        field: String,
+        value: Measurement<UnitTemperature>
+    )
     case relativeHumidityOutOfRange(field: String, value: Double)
-    case invalidDewPoint(temperatureC: Double, dewPointC: Double)
-    case invalidComfortRange(field: String, minimum: Double, maximum: Double)
+    case invalidDewPoint(
+        temperature: Measurement<UnitTemperature>,
+        dewPoint: Measurement<UnitTemperature>
+    )
+    case invalidTemperatureRange(
+        field: String,
+        minimum: Measurement<UnitTemperature>,
+        maximum: Measurement<UnitTemperature>
+    )
+    case invalidRelativeHumidityRange(
+        field: String,
+        minimumPercent: Double,
+        maximumPercent: Double
+    )
     case invalidFreshAirInterval(minutes: Int)
     case invalidDuration(minutes: Int)
     case invalidTimeRange(lastVentilatedAtMillis: Int?, nowMillis: Int)
@@ -211,14 +251,19 @@ public enum VentilationAdvisorError: Error, Equatable, Sendable {
 
 Rules:
 
-- All floating-point inputs MUST be finite.
-- Temperatures MUST be in `-50...80` C.
+- All floating-point inputs and measurement values MUST be finite.
+- Supported temperature units are Celsius, Fahrenheit, and Kelvin. Custom
+  `UnitTemperature` values MUST throw `unsupportedTemperatureUnit`.
+- Absolute temperatures MUST be converted to Celsius for validation and MUST
+  be in `-50...80` C.
 - RH MUST satisfy `0 < RH <= 100`.
-- A dew point used for inverse Magnus MUST be greater than `-237.7` C and no
-  greater than its temperature.
-- Every comfort range MUST be finite and have `minimum < maximum`.
-- Temperature comfort bounds MUST be in `-50...80` C.
-- RH comfort bounds MUST satisfy `0 < minimum < maximum <= 100`.
+- A dew point MUST be converted to Celsius, be greater than `-237.7` C, and be
+  no greater than its associated temperature.
+- Every range MUST have finite bounds and a strictly lower minimum after unit
+  normalization.
+- Temperature comfort bounds MUST normalize into `-50...80` C.
+- RH comfort bounds MUST satisfy
+  `0 < minimumPercent < maximumPercent <= 100`.
 - Dew-point comfort bounds MUST be greater than `-237.7` C and no greater than
   80 C.
 - A non-nil fresh-air interval MUST be greater than zero.
@@ -229,6 +274,12 @@ Rules:
 If outdoor dew point is absent, the advisor and predictor MUST calculate it. If
 it is present, they MUST validate and use the supplied value.
 
+All public operations MUST normalize supported temperature measurements to
+Celsius before scientific calculations. Standalone dew-point calculation
+returns its result in the supplied temperature's unit. Prediction and advisor
+operations return every absolute temperature and dew point in the indoor input
+temperature's unit, including outdoor values copied into `VentilationAdvice`.
+
 ## 6. Psychrometrics
 
 Use Magnus constants:
@@ -237,6 +288,9 @@ Use Magnus constants:
 a = 17.27
 b = 237.7
 ```
+
+The variables ending in `C` below are internal Celsius `Double` values obtained
+from validated public measurements.
 
 Dew point from temperature and RH:
 
@@ -285,8 +339,11 @@ next 15 points: 2 + 0.4 * (d - 10)
 beyond 25 points: 8 + 0.8 * (d - 25)
 ```
 
-Use exactly one humidity penalty, selected by `HumidityMetric`. Combine penalties
-relative to the configured maximum accepted temperature `maxT`:
+Use exactly one humidity penalty, selected by the
+`HumidityComfortPreference` case. Normalize temperature and dew-point
+measurements and ranges to Celsius before calculating distance. Combine
+penalties relative to the configured maximum accepted Celsius temperature
+`maxT`:
 
 ```text
 temperatureC < maxT + 2:
@@ -307,8 +364,13 @@ Air changes per hour:
 CLOSED = 0.0
 TILTED = 0.35
 OPEN = 2.0
-CROSS_VENTILATION = 5.0
 ```
+
+These fixed rates are the initial package approximation. `WindowState`
+describes only the observable opening state; it MUST NOT attempt to encode room
+layout or airflow topology. Estimating ACH from wind conditions and
+apartment-specific calibration is a possible future extension and is outside
+the current package contract.
 
 ```text
 hours = minutes / 60
@@ -332,18 +394,14 @@ Candidate minutes are exactly `5, 10, 15, 30, 60`, in ascending order.
   as a comfort improvement.
 - Improvement while closed produces `OPEN_WINDOWS`.
 - Improvement while non-closed produces `KEEP_WINDOWS_OPEN`.
-- No improvement while closed produces `KEEP_CLOSED`, zero minutes, while
+- No improvement while closed produces `KEEP_WINDOWS_CLOSED`, zero minutes, while
   retaining the best rejected candidate's predicted values and score.
-- No improvement while non-closed produces `CLOSE_WINDOWS_NOW`, zero minutes,
+- No improvement while non-closed produces `CLOSE_WINDOWS`, zero minutes,
   with predicted values and score equal to the current state.
 
-Derived values:
-
-```text
-temperatureDeltaC = predictedTempC - currentIndoorTempC
-dewPointDeltaC = predictedDewPointC - currentIndoorDewPointC
-scoreDelta = currentScore - predictedScore
-```
+`VentilationAdvice` MUST NOT include temperature, dew-point, or score delta
+properties. Each delta is derivable from the corresponding current and
+predicted values. Explanation logic MAY calculate internal Celsius differences.
 
 ## 10. Fresh-air override
 
@@ -359,7 +417,7 @@ The override applies only when all conditions hold:
 Extremely unfavorable means both:
 
 ```text
-outdoorTempC > indoorTempC + 5
+outdoorTemperatureC > indoorTemperatureC + 5
 outdoorDewPointC > indoorDewPointC + 3
 ```
 
@@ -371,12 +429,13 @@ The override selects the five-minute open-window candidate.
 plain-language category and:
 
 ```text
-Expected after: {temp to 1 decimal} C / {RH to 1 decimal}% RH / dew point
-{dew point to 1 decimal} C.
+Expected after: {temp to 1 decimal}{unit symbol} / {RH to 1 decimal}% RH /
+dew point {dew point to 1 decimal}{unit symbol}.
 ```
 
-Formatting MUST be deterministic and locale-independent. Numeric properties in
-`VentilationAdvice` remain unrounded.
+Formatting MUST be deterministic and locale-independent. Unit symbols are
+exactly `°C`, `°F`, and `K`. Explanation measurements use the indoor input
+temperature's unit. Numeric properties in `VentilationAdvice` remain unrounded.
 
 Required detailed categories:
 
@@ -394,25 +453,32 @@ comfort metric.
 ## 12. Testing and golden cases
 
 Tests MUST use exact recommendations and minutes, `0.01` score tolerance, and
-`0.1` tolerance for temperatures, RH, and dew point. Reasons are checked by
-category substring, not full-string equality.
+`0.1` tolerance for measurement values, RH, and dew point after conversion to
+the expected unit. Reasons are checked by category substring, not full-string
+equality.
 
 Required end-to-end cases using standard settings unless specified:
 
 1. Indoor 29 C / 60% RH, outdoor 21 C / 45% RH, closed: `OPEN_WINDOWS`,
    30 minutes, cooler-and-lower-dew-point reason.
-2. Indoor 22 C / 45% RH, outdoor 31 C / 70% RH, closed: `KEEP_CLOSED`, zero
+2. Indoor 22 C / 45% RH, outdoor 31 C / 70% RH, closed:
+   `KEEP_WINDOWS_CLOSED`, zero
    minutes, tied/no-improvement reason, with the five-minute rejected candidate.
 3. Indoor 22 C / 45% RH, outdoor 23 C / 45% RH, closed for four hours:
    `OPEN_WINDOWS`, five minutes, fresh-air reason.
 4. Indoor 22 C / 45% RH, outdoor 31 C / 70% RH, already open:
-   `CLOSE_WINDOWS_NOW`, zero minutes, unchanged prediction.
+   `CLOSE_WINDOWS`, zero minutes, unchanged prediction.
 5. Indoor 29 C / 45% RH, outdoor 24 C / 70% RH: standard RH settings select
    30 minutes; settings using 5...15 C dew point select 15 minutes.
+6. Repeat a golden case with indoor temperature in Fahrenheit, outdoor
+   temperature in Kelvin, and comfort bounds using mixed supported units.
+   Recommendation, minutes, and scores MUST match the Celsius-equivalent case;
+   every absolute temperature and dew point in the advice MUST use Fahrenheit.
 
 Unit tests MUST additionally cover every formula boundary, validation error,
-enum wire value, Codable round trip, window mode, candidate tie, and fresh-air
-threshold condition.
+temperature unit and JSON representation, mixed-unit range, enum wire value,
+Codable round trip, window mode, candidate tie, and fresh-air threshold
+condition.
 
 ## 13. Implementation sequence
 
@@ -423,4 +489,3 @@ ends with a focused commit.
 
 The stage index and individual handoff documents are maintained in
 [`Documentation/ImplementationStages/`](ImplementationStages/README.md).
-

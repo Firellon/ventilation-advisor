@@ -29,25 +29,32 @@ public struct VentilationAdvisor: Sendable {
    cooler/lower-dew-point reason.
 2. GREEN: compose validation, dew-point resolution, current scoring, candidate
    generation, selection, explanation, and advice mapping through `assess`.
-3. RED: add hot/humid closed conditions and expect `.keepClosed`, zero minutes,
-   the five-minute rejected prediction, and the tied/no-improvement category.
+3. RED: add hot/humid closed conditions and expect `.keepWindowsClosed`, zero
+   minutes, the five-minute rejected prediction, and the tied/no-improvement
+   category.
 4. RED: add four-hours-stale closed conditions and expect `.openWindows`, five
    minutes, and the fresh-air category.
-5. RED: add hot/humid already-open conditions and expect `.closeWindowsNow`, zero
+5. RED: add hot/humid already-open conditions and expect `.closeWindows`, zero
    minutes, and current values as the prediction.
 6. RED: assess 29 C / 45% RH indoors and 24 C / 70% RH outdoors under standard RH
    settings and under 5...15 C dew-point settings; expect 30 and 15 minutes.
-7. RED: verify all deltas and `scoreDelta = currentScore - predictedScore`.
-8. RED: decode a complete JSON input, assess it, encode advice, and verify the
-   documented interchange keys and enum values.
-9. Refactor only orchestration duplication; do not expand the public API.
+7. RED: repeat the cooler/drier case with Fahrenheit indoor temperature, Kelvin
+   outdoor temperature, and mixed-unit comfort bounds. Expect the same
+   recommendation, minutes, and scores as its Celsius equivalent, and assert
+   every advice temperature and dew point uses Fahrenheit.
+8. RED: verify advice contains no temperature, dew-point, or score delta keys.
+9. RED: decode a complete JSON input containing explicit `value` and `unit`
+   measurements, assess it, encode advice, and verify all documented
+   interchange keys and enum values.
+10. Refactor only orchestration duplication; do not expand the public API.
 
 ## Final verification
 
 - Run `swift build` and `swift test` from a fresh invocation.
 - Confirm recommendation/minutes exactly, scores within `0.01`, and physical
-  values within `0.1` across golden cases.
-- Run `git diff --check` and search public Swift sources for `Int64`.
+  values within `0.1` after conversion to the expected unit across golden cases.
+- Run `git diff --check` and search public Swift sources for `Int64`,
+  `temperatureC`, `dewPointC`, and removed delta properties.
 - Compare implementation against every MUST/MUST NOT in the technical
   specification.
 - Update README status from specification-first to implemented only after all
@@ -57,6 +64,8 @@ public struct VentilationAdvisor: Sendable {
 
 - `VentilationAdvisor.assess(_:)` is the complete public orchestration API.
 - All required golden cases pass using real components without mocks.
+- Mixed supported units produce Celsius-equivalent decisions and use the indoor
+  unit for all returned absolute temperatures.
 - No platform, networking, persistence, sensor, or UI dependency is present.
 - All public integer fields use `Int`.
 - Full build and test output is warning-free.

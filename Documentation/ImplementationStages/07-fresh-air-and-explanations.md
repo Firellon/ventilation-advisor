@@ -25,8 +25,10 @@ Tests/VentilationAdvisorTests/ExplanationTests.swift
 3. RED: verify the policy requires closed windows, a known last-ventilated time,
    and no comfort-improving candidate.
 4. RED: verify the override selects the existing five-minute candidate.
-5. RED: verify it is suppressed only when outside temperature is over 5 C warmer
-   and outside dew point is over 3 C higher; test each condition alone too.
+5. RED: use mixed-unit inputs to verify suppression only when outside
+   temperature is physically over 5 C warmer and outside dew point is
+   physically over 3 C higher; test each condition alone too. Normalize to
+   Celsius before calculating these internal differences.
 6. RED: cover negative timestamps, future last-ventilated time, and overflow-safe
    conversion of interval minutes to milliseconds.
 
@@ -38,10 +40,13 @@ Tests/VentilationAdvisorTests/ExplanationTests.swift
 2. RED: verify moisture category decisions use dew point even under RH comfort
    settings.
 3. RED: verify detailed text includes locale-independent one-decimal expected
-   temperature, RH, and dew point.
-4. RED: verify numeric advice values remain unrounded and every short reason is
+   temperature, RH, and dew point using exact `°C`, `°F`, or `K` symbols.
+4. RED: pass Fahrenheit indoor input with Kelvin outdoor input and verify all
+   explanation measurements use Fahrenheit. Repeat a formatting case with
+   Kelvin indoor input.
+5. RED: verify numeric advice values remain unrounded and every short reason is
    at most 80 characters.
-5. Refactor category selection and expected-value formatting into separate
+6. Refactor category selection and expected-value formatting into separate
    internal functions.
 
 ## Acceptance criteria
@@ -49,6 +54,8 @@ Tests/VentilationAdvisorTests/ExplanationTests.swift
 - Fresh-air policy is deterministic at every threshold and exception boundary.
 - `nil` disables time-based recommendations.
 - Tied and strictly worse candidates produce different accurate wording.
+- Threshold comparisons are unit-independent and explanation units follow the
+  indoor input temperature.
 - Explanation code remains internal and contains no localization framework.
 - `swift build`, `swift test`, and `git diff --check` pass.
 

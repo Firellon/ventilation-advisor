@@ -24,14 +24,16 @@ The candidate and selector types remain internal and are tested with
    `.open`; for each non-closed state, verify its own ACH is retained.
 3. RED: provide a strictly better lowest score and expect `.openWindows` from a
    closed state and `.keepWindowsOpen` from a non-closed state.
-4. RED: provide equal or worse scores and expect `.keepClosed` or
-   `.closeWindowsNow`, respectively.
+4. RED: provide equal or worse scores and expect `.keepWindowsClosed` or
+   `.closeWindows`, respectively.
 5. RED: give two candidates identical scores and assert the earlier/shorter
    candidate wins.
-6. RED: verify `.keepClosed` uses the best rejected candidate's prediction and
-   score but returns zero recommended minutes.
-7. RED: verify `.closeWindowsNow` uses current conditions/current score and zero
-   minutes rather than the rejected continued-ventilation prediction.
+6. RED: verify `.keepWindowsClosed` uses the best rejected candidate's
+   prediction and score but returns zero recommended minutes, preserving the
+   indoor temperature unit.
+7. RED: verify `.closeWindows` uses current conditions/current score and zero
+   minutes rather than the rejected continued-ventilation prediction; all
+   returned absolute temperatures remain in the indoor unit.
 8. Refactor selection from candidate construction so Session 7 can apply the
    stale-air override without changing base score ordering.
 
@@ -40,6 +42,8 @@ The candidate and selector types remain internal and are tested with
 - Strictly lower means improvement; equality never opens windows for comfort.
 - Candidate tie behavior is stable and independent of collection implementation.
 - Rejected-candidate output follows the two distinct specification rules.
+- Candidate construction and selection never compare raw values expressed in
+  different temperature units.
 - No stale-air override or user-facing text exists yet.
 - `swift build`, `swift test`, and `git diff --check` pass.
 
