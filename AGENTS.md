@@ -30,6 +30,8 @@ explanation logic. Platform services and UI belong to consuming applications.
   test first.
 - Use `Int` for timestamp and duration values; supported execution targets are
   64-bit.
+- Write commit subjects in concise present simple with a Conventional Commits
+  prefix, then a short description of why the change was made.
 
 ## Development Workflow
 
