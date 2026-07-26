@@ -31,16 +31,19 @@ public enum VentilationPredictor {
    are 0, 0.35, and 2 ACH through observable mix-factor results.
 2. RED: verify the open-window mix factor at 30 minutes equals
    `1 - exp(-2 * 0.5)` within tolerance. Implement the exponential formula.
-3. RED: predict a known indoor/outdoor pair and assert interpolated temperature
-   and dew point. Implement linear interpolation using the mix factor.
+3. RED: provide Fahrenheit indoor temperature and Kelvin outdoor temperature;
+   assert Celsius-normalized interpolation and a Fahrenheit predicted
+   temperature. Implement linear interpolation in Celsius and convert the
+   result to the indoor unit.
 4. RED: omit outdoor dew point and expect it to be calculated; provide a valid
-   dew point and expect that exact value to drive prediction.
+   dew point in a third supported unit and expect that physical value to drive
+   prediction. Predicted dew point uses the indoor temperature's unit.
 5. RED: assert predicted RH equals inverse Magnus for predicted temperature and
    dew point. Add RH reconstruction.
 6. RED: assert `.closed` returns unchanged conditions and nonpositive minutes
    throw `.invalidDuration`.
 7. RED: cover invalid indoor/outdoor conditions and inconsistent supplied dew
-   point using the typed validation errors from Session 3.
+   point, including unsupported units, using typed errors from Session 3.
 
 ## Acceptance criteria
 
@@ -48,6 +51,8 @@ public enum VentilationPredictor {
 - The initial fixed ACH mapping is `.closed = 0`, `.tilted = 0.35`, and
   `.open = 2`.
 - All three predicted physical values are returned without display rounding.
+- Every predicted absolute temperature uses the indoor input temperature's unit.
+- Mixed-unit inputs produce the same physics as Celsius-equivalent inputs.
 - Supplied and calculated outdoor dew point paths are both tested.
 - The predictor does not generate recommendation candidates or advice.
 - `swift build`, `swift test`, and `git diff --check` pass.

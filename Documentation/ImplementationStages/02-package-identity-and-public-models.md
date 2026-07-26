@@ -1,51 +1,46 @@
-# Session 2: Package Identity and Public Models
+# Session 2: Package Identity and Unit-Aware Public Models
 
 **Status:** Planned
 **Time box:** 45–60 minutes
-**Outcome:** Consumers can import `VentilationAdvisor`, construct its settings
-and input models, and inspect, compare, encode, and decode its output models. No
+**Outcome:** Consumers can import `VentilationAdvisor`, construct unit-aware
+settings and inputs, and inspect, compare, encode, and decode outputs. No
 validation, psychrometric calculation, scoring, prediction, or recommendation
 behavior is implemented.
 
 ## Review outcome
 
-The initial stage outline had three risks that this plan resolves:
+This stage resolves four API risks before implementation:
 
-1. Renaming the target and physical directories in one step would make the first
-   test fail because SwiftPM could not discover target sources. That is an
-   infrastructure error, not a valid TDD RED for missing model behavior.
-2. The specification's broad wording about public value types could imply that
-   `VentilationAdvisorError` is Codable. Errors are not interchange models. The
-   technical specification now explicitly exempts the error enum from Codable.
-3. Giving `VentilationAdvice` a public 18-argument memberwise initializer would
-   expose an error-prone construction API for a value that only the advisor
-   produces. Output properties remain public, but output construction remains
-   package-owned.
-
-To preserve a meaningful first RED, rename the package product and target while
-temporarily pointing them at the generated lowercase directories. Normalize the
-physical directories only after all model tests are green.
+1. The product and target are renamed while temporarily retaining the generated
+   lowercase directories, so the first TDD failure is a missing model rather
+   than failed SwiftPM source discovery.
+2. Caller-owned models have explicit public initializers. Library-produced
+   `PredictedConditions` and `VentilationAdvice` have only internal synthesized
+   memberwise initializers.
+3. Absolute temperatures use `Measurement<UnitTemperature>` and carry Celsius,
+   Fahrenheit, or Kelvin through the public API.
+4. Package JSON uses an explicit `{ "value", "unit" }` temperature shape rather
+   than depending on Foundation's synthesized `Measurement` encoding.
 
 ## Global constraints
 
 - Swift tools and language version: 6.3.
 - Package, product, module, and final target directory: `VentilationAdvisor`.
 - Test target and final test directory: `VentilationAdvisorTests`.
-- Third-party dependencies: none.
+- Third-party dependencies: none; import Foundation for `Measurement` and
+  `UnitTemperature`.
 - Public domain models: `Codable`, `Equatable`, `Sendable`.
-- Public errors: `Error`, `Equatable`, `Sendable`.
-- All stored properties are immutable `let` values.
-- Caller-owned settings, conditions, and input models have explicit public
-  initializers.
-- Library-produced `PredictedConditions` and `VentilationAdvice` have no public
-  memberwise initializers.
-- All timestamp, interval, and recommended-minute fields use `Int`.
-- Validation is deferred to Session 3. Model initializers do not throw or clamp.
+- Public errors: `Error`, `Equatable`, `Sendable`; errors are not Codable.
+- Stored properties are immutable `let` values.
+- Timestamps, intervals, and recommended minutes use `Int`.
+- Model initializers do not validate, throw, normalize, or clamp values.
+- Validation and Celsius normalization begin in Session 3.
 
 ## Final file map
 
 ```text
 Package.swift
+Sources/VentilationAdvisor/Models/TemperatureMeasurementCoding.swift
 Sources/VentilationAdvisor/Models/ComfortSettings.swift
 Sources/VentilationAdvisor/Models/Conditions.swift
 Sources/VentilationAdvisor/Models/VentilationAdvice.swift
@@ -54,37 +49,44 @@ Tests/VentilationAdvisorTests/ModelsTests.swift
 ```
 
 Delete the generated test placeholder before the first RED. Delete the generated
-source placeholder when the directories are normalized at the final checkpoint.
+source placeholder when directories are normalized at the final checkpoint.
 
 ## Locked public data contract
+
+All declarations using measurements import Foundation.
 
 ### Comfort settings
 
 ```swift
-public struct ComfortRange: Codable, Equatable, Sendable {
-    public let minimum: Double
-    public let maximum: Double
-    public init(minimum: Double, maximum: Double)
+public struct TemperatureRange: Codable, Equatable, Sendable {
+    public let minimum: Measurement<UnitTemperature>
+    public let maximum: Measurement<UnitTemperature>
+
+    public init(
+        minimum: Measurement<UnitTemperature>,
+        maximum: Measurement<UnitTemperature>
+    )
 }
 
-public enum HumidityMetric: String, Codable, Equatable, Sendable {
-    case relativeHumidity = "RELATIVE_HUMIDITY"
-    case dewPoint = "DEW_POINT"
+public struct RelativeHumidityRange: Codable, Equatable, Sendable {
+    public let minimumPercent: Double
+    public let maximumPercent: Double
+
+    public init(minimumPercent: Double, maximumPercent: Double)
 }
 
-public struct HumidityComfortPreference: Codable, Equatable, Sendable {
-    public let metric: HumidityMetric
-    public let range: ComfortRange
-    public init(metric: HumidityMetric, range: ComfortRange)
+public enum HumidityComfortPreference: Codable, Equatable, Sendable {
+    case relativeHumidity(RelativeHumidityRange)
+    case dewPoint(TemperatureRange)
 }
 
 public struct ComfortSettings: Codable, Equatable, Sendable {
-    public let temperatureRangeC: ComfortRange
+    public let temperatureRange: TemperatureRange
     public let humidityPreference: HumidityComfortPreference
     public let freshAirIntervalMinutes: Int?
 
     public init(
-        temperatureRangeC: ComfortRange,
+        temperatureRange: TemperatureRange,
         humidityPreference: HumidityComfortPreference,
         freshAirIntervalMinutes: Int?
     )
@@ -97,10 +99,15 @@ public struct ComfortSettings: Codable, Equatable, Sendable {
 
 ```swift
 ComfortSettings(
-    temperatureRangeC: ComfortRange(minimum: 18.0, maximum: 24.0),
-    humidityPreference: HumidityComfortPreference(
-        metric: .relativeHumidity,
-        range: ComfortRange(minimum: 40.0, maximum: 60.0)
+    temperatureRange: TemperatureRange(
+        minimum: Measurement(value: 18, unit: .celsius),
+        maximum: Measurement(value: 24, unit: .celsius)
+    ),
+    humidityPreference: .relativeHumidity(
+        RelativeHumidityRange(
+            minimumPercent: 40,
+            maximumPercent: 60
+        )
     ),
     freshAirIntervalMinutes: 180
 )
@@ -110,19 +117,24 @@ ComfortSettings(
 
 ```swift
 public struct IndoorConditions: Codable, Equatable, Sendable {
-    public let temperatureC: Double
+    public let temperature: Measurement<UnitTemperature>
     public let relativeHumidityPercent: Double
-    public init(temperatureC: Double, relativeHumidityPercent: Double)
+
+    public init(
+        temperature: Measurement<UnitTemperature>,
+        relativeHumidityPercent: Double
+    )
 }
 
 public struct OutdoorConditions: Codable, Equatable, Sendable {
-    public let temperatureC: Double
+    public let temperature: Measurement<UnitTemperature>
     public let relativeHumidityPercent: Double
-    public let dewPointC: Double?
+    public let dewPoint: Measurement<UnitTemperature>?
+
     public init(
-        temperatureC: Double,
+        temperature: Measurement<UnitTemperature>,
         relativeHumidityPercent: Double,
-        dewPointC: Double?
+        dewPoint: Measurement<UnitTemperature>?
     )
 }
 
@@ -162,55 +174,94 @@ public enum Recommendation: String, Codable, Equatable, Sendable {
 }
 
 public struct PredictedConditions: Codable, Equatable, Sendable {
-    public let temperatureC: Double
+    public let temperature: Measurement<UnitTemperature>
     public let relativeHumidityPercent: Double
-    public let dewPointC: Double
+    public let dewPoint: Measurement<UnitTemperature>
 }
 
 public struct VentilationAdvice: Codable, Equatable, Sendable {
     public let recommendation: Recommendation
     public let recommendedMinutes: Int
-    public let currentIndoorTempC: Double
+    public let currentIndoorTemperature: Measurement<UnitTemperature>
     public let currentIndoorRelativeHumidityPercent: Double
-    public let currentIndoorDewPointC: Double
-    public let outdoorTempC: Double
+    public let currentIndoorDewPoint: Measurement<UnitTemperature>
+    public let outdoorTemperature: Measurement<UnitTemperature>
     public let outdoorRelativeHumidityPercent: Double
-    public let outdoorDewPointC: Double
-    public let predictedTempC: Double
+    public let outdoorDewPoint: Measurement<UnitTemperature>
+    public let predictedTemperature: Measurement<UnitTemperature>
     public let predictedRelativeHumidityPercent: Double
-    public let predictedDewPointC: Double
+    public let predictedDewPoint: Measurement<UnitTemperature>
     public let currentScore: Double
     public let predictedScore: Double
-    public let temperatureDeltaC: Double
-    public let dewPointDeltaC: Double
-    public let scoreDelta: Double
     public let shortReason: String
     public let detailedReason: String
 }
 ```
 
-Do not declare an initializer for either output struct. Swift synthesizes an
-internal memberwise initializer that production code and tests using
-`@testable import VentilationAdvisor` can use. Consumers receive these values
-from package operations and read their public properties. Synthesized Codable
-conformance still allows consumers to encode and decode the complete flat wire
-shape.
+Do not declare a public memberwise initializer for either output struct.
+Implement their custom Codable requirements in extensions so Swift retains the
+internal synthesized memberwise initializer for production composition and
+tests using `@testable import VentilationAdvisor`.
 
-Do not introduce a public convenience initializer, builder, or nested snapshot
-model in this session. Grouping fields would improve manual construction but
-would also change the normative JSON shape.
+Do not add temperature, dew-point, or score delta properties. They are derived
+values and are outside the public contract.
 
 ### Error type
 
-Declare every case already specified in
+Declare every case in
 [`TechnicalSpecification.md`](../TechnicalSpecification.md#5-validation-and-errors):
 
 ```swift
 public enum VentilationAdvisorError: Error, Equatable, Sendable
 ```
 
-Session 2 defines the type and its cases only. Session 3 is responsible for
-throwing them.
+Session 2 defines and compares error values but does not throw them.
+
+## Locked temperature JSON
+
+The shared internal `TemperatureMeasurementCoding` helper maps only:
+
+```text
+UnitTemperature.celsius    <-> CELSIUS
+UnitTemperature.fahrenheit <-> FAHRENHEIT
+UnitTemperature.kelvin     <-> KELVIN
+```
+
+Every nested measurement has this exact representation:
+
+```json
+{ "value": 68.0, "unit": "FAHRENHEIT" }
+```
+
+The helper owns the wire-only unit enum and the conversion between that enum and
+Foundation units. Public models use custom Codable implementations that delegate
+measurement fields to the helper. Decoding an unknown unit throws
+`DecodingError.dataCorrupted`; encoding a custom `UnitTemperature` throws
+`EncodingError.invalidValue`. Scientific validation remains deferred.
+
+`HumidityComfortPreference` uses:
+
+```json
+{
+  "metric": "RELATIVE_HUMIDITY",
+  "range": {
+    "minimumPercent": 40.0,
+    "maximumPercent": 60.0
+  }
+}
+```
+
+or:
+
+```json
+{
+  "metric": "DEW_POINT",
+  "range": {
+    "minimum": { "value": 5.0, "unit": "CELSIUS" },
+    "maximum": { "value": 15.0, "unit": "CELSIUS" }
+  }
+}
+```
 
 ## Task 1: Rename the package without moving directories
 
@@ -220,9 +271,7 @@ throwing them.
 - Delete `Tests/ventilation-advisorTests/ventilation_advisorTests.swift`.
 - Create `Tests/ventilation-advisorTests/ModelsTests.swift`.
 
-### Step 1: Rename manifest identities
-
-Use this temporary manifest shape:
+Use temporary explicit paths:
 
 ```swift
 let package = Package(
@@ -248,75 +297,86 @@ let package = Package(
 )
 ```
 
-The explicit paths are temporary and removed in Task 5.
-
-### Step 2: Write the first failing test
-
-Delete the generated placeholder test first. It imports the old lowercase
-module and would make the test run fail for the wrong reason.
+Delete the generated test before adding:
 
 ```swift
 import Foundation
 import Testing
 @testable import VentilationAdvisor
 
-@Test("standard comfort settings use the documented defaults")
+@Test("standard comfort settings use documented unit-aware defaults")
 func standardComfortSettingsUseDocumentedDefaults() {
     let settings = ComfortSettings.standard
 
-    #expect(settings.temperatureRangeC == ComfortRange(minimum: 18, maximum: 24))
-    #expect(settings.humidityPreference.metric == .relativeHumidity)
-    #expect(settings.humidityPreference.range == ComfortRange(minimum: 40, maximum: 60))
+    #expect(
+        settings.temperatureRange.minimum ==
+            Measurement(value: 18, unit: UnitTemperature.celsius)
+    )
+    #expect(
+        settings.temperatureRange.maximum ==
+            Measurement(value: 24, unit: UnitTemperature.celsius)
+    )
+
+    guard case .relativeHumidity(let range) =
+        settings.humidityPreference
+    else {
+        Issue.record("Expected relative-humidity preference")
+        return
+    }
+
+    #expect(range.minimumPercent == 40)
+    #expect(range.maximumPercent == 60)
     #expect(settings.freshAirIntervalMinutes == 180)
 }
 ```
 
-Run:
+Run `& $swift test`. Expected RED: `ComfortSettings` and `TemperatureRange` are
+missing while the `VentilationAdvisor` import succeeds.
 
-```powershell
-& $swift test
-```
-
-Expected RED: compilation fails because `ComfortSettings` and `ComfortRange` do
-not exist. The import of `VentilationAdvisor` must succeed; a source-discovery or
-module-import error is the wrong failure and must be corrected before continuing.
-
-## Task 2: Add comfort settings models
+## Task 2: Add comfort-setting model shapes
 
 **Files:**
 
 - Create `Sources/ventilation-advisor/Models/ComfortSettings.swift`.
 
-Implement the exact comfort-settings API above and nothing else. Run
-`& $swift test`; the standard-settings test must pass.
+Implement the exact public settings declarations and `.standard`. Do not add
+custom Codable yet. Run `& $swift test`; the defaults test must pass.
 
-Refactor only formatting and duplication while the test remains green.
-
-## Task 3: Lock enum wire values
+## Task 3: Lock measurement and humidity-preference JSON
 
 **Files:**
 
+- Create
+  `Sources/ventilation-advisor/Models/TemperatureMeasurementCoding.swift`.
+- Modify `Sources/ventilation-advisor/Models/ComfortSettings.swift`.
 - Modify `Tests/ventilation-advisorTests/ModelsTests.swift`.
+
+Use an encoder configured with `.sortedKeys` for exact JSON assertions. RED tests
+must assert:
+
+1. Celsius, Fahrenheit, and Kelvin each encode to their exact uppercase unit.
+2. All three forms decode back to equal `Measurement<UnitTemperature>` values.
+3. Unknown unit `"RANKINE"` fails decoding.
+4. A custom `UnitTemperature` fails encoding.
+5. Both `HumidityComfortPreference` cases encode with exact `metric` and
+   case-specific `range` shapes.
+6. Mixed-unit `TemperatureRange` bounds round-trip without normalization.
+
+GREEN: implement the internal measurement codec and custom Codable for
+`TemperatureRange` and `HumidityComfortPreference`. Custom coding belongs in
+extensions where doing so preserves desired synthesized initializers.
+
+## Task 4: Add conditions and enum wire values
+
+**Files:**
+
 - Create `Sources/ventilation-advisor/Models/Conditions.swift`.
 - Create `Sources/ventilation-advisor/Models/VentilationAdvice.swift`.
+- Modify `Tests/ventilation-advisorTests/ModelsTests.swift`.
 
-Add this helper:
-
-```swift
-private func encodedJSONString<T: Encodable>(_ value: T) throws -> String {
-    let data = try JSONEncoder().encode(value)
-    return try #require(String(data: data, encoding: .utf8))
-}
-```
-
-Add separate parameterized tests for:
+RED: parameterize exact encoding for:
 
 ```swift
-[
-    (HumidityMetric.relativeHumidity, "\"RELATIVE_HUMIDITY\""),
-    (HumidityMetric.dewPoint, "\"DEW_POINT\""),
-]
-
 [
     (WindowState.closed, "\"CLOSED\""),
     (WindowState.tilted, "\"TILTED\""),
@@ -325,25 +385,26 @@ Add separate parameterized tests for:
 
 [
     (Recommendation.openWindows, "\"OPEN_WINDOWS\""),
-    (Recommendation.keepWindowsOpen, "\"KEEP_WINDOWS_OPEN\""),
     (Recommendation.closeWindows, "\"CLOSE_WINDOWS\""),
+    (Recommendation.keepWindowsOpen, "\"KEEP_WINDOWS_OPEN\""),
     (Recommendation.keepWindowsClosed, "\"KEEP_WINDOWS_CLOSED\""),
 ]
 ```
 
-Run the tests before adding `WindowState` and `Recommendation`. Expected RED:
-the referenced enum types are unavailable. Implement the exact raw-value enums,
-rerun, and confirm all wire-value cases pass.
+Also construct `IndoorConditions` in Fahrenheit and `OutdoorConditions` in
+Kelvin with a Celsius dew point. Expected RED: these types do not exist. GREEN:
+add the exact declarations and custom Codable extensions using the shared
+measurement codec.
 
-## Task 4: Add complete Codable round trips
+## Task 5: Complete model round trips and errors
 
 **Files:**
 
-- Modify `Tests/ventilation-advisorTests/ModelsTests.swift`.
-- Modify the three model files.
+- Modify all four model files.
 - Create `Sources/ventilation-advisor/VentilationAdvisorError.swift`.
+- Modify `Tests/ventilation-advisorTests/ModelsTests.swift`.
 
-Add a generic round-trip helper:
+Add:
 
 ```swift
 private func roundTrip<T: Codable & Equatable>(_ value: T) throws -> T {
@@ -352,63 +413,69 @@ private func roundTrip<T: Codable & Equatable>(_ value: T) throws -> T {
 }
 ```
 
-Write one test each for:
+RED then GREEN one representative value at a time:
 
-1. `VentilationInput` with non-nil `lastVentilatedAtMillis`.
-2. `VentilationInput` with nil `lastVentilatedAtMillis` and nil outdoor dew point.
-3. `PredictedConditions`.
-4. `VentilationAdvice` with every property assigned a distinct value.
+1. `VentilationInput` with Fahrenheit indoor temperature, Kelvin outdoor
+   temperature, Celsius supplied dew point, mixed-unit temperature bounds, and
+   non-nil time metadata.
+2. `VentilationInput` with nil outdoor dew point and nil last-ventilated time.
+3. `PredictedConditions` with Fahrenheit temperature and dew point.
+4. `VentilationAdvice` with every property assigned a distinct value and no
+   delta properties.
 
-The input tests exercise explicit public initializers. The two output tests use
-the synthesized internal memberwise initializers made visible by
-`@testable import VentilationAdvisor`. This verifies the output wire contract
-without promising public manual construction.
+Input models exercise public initializers. Output tests use internal synthesized
+memberwise initializers through `@testable import`. Implement output Codable in
+extensions so those internal initializers remain available.
 
-Write each test before its referenced model exists and confirm the expected RED
-is a missing type. Then add only the stored properties, required conformances,
-and public input initializer needed to make that test pass. Do not declare an
-initializer for either output type.
-
-Add this compile-time construction and equality test for every error case:
+Add a compile-time equality test containing all error cases:
 
 ```swift
-@Test("all public error cases are constructible and equatable")
-func publicErrorCasesAreConstructible() {
-    let errors: [VentilationAdvisorError] = [
-        .nonFiniteValue(field: "indoor.temperatureC"),
-        .temperatureOutOfRange(
-            field: "indoor.temperatureC",
-            value: 81
-        ),
-        .relativeHumidityOutOfRange(
-            field: "indoor.relativeHumidityPercent",
-            value: 0
-        ),
-        .invalidDewPoint(temperatureC: 20, dewPointC: 21),
-        .invalidComfortRange(
-            field: "temperatureRangeC",
-            minimum: 24,
-            maximum: 18
-        ),
-        .invalidFreshAirInterval(minutes: 0),
-        .invalidDuration(minutes: 0),
-        .invalidTimeRange(
-            lastVentilatedAtMillis: 2,
-            nowMillis: 1
-        ),
-    ]
+let errors: [VentilationAdvisorError] = [
+    .nonFiniteValue(field: "indoor.temperature.value"),
+    .unsupportedTemperatureUnit(
+        field: "indoor.temperature",
+        symbol: "°R"
+    ),
+    .temperatureOutOfRange(
+        field: "indoor.temperature",
+        value: Measurement(value: 81, unit: .celsius)
+    ),
+    .relativeHumidityOutOfRange(
+        field: "indoor.relativeHumidityPercent",
+        value: 0
+    ),
+    .invalidDewPoint(
+        temperature: Measurement(value: 20, unit: .celsius),
+        dewPoint: Measurement(value: 21, unit: .celsius)
+    ),
+    .invalidTemperatureRange(
+        field: "temperatureRange",
+        minimum: Measurement(value: 24, unit: .celsius),
+        maximum: Measurement(value: 18, unit: .celsius)
+    ),
+    .invalidRelativeHumidityRange(
+        field: "humidityPreference.range",
+        minimumPercent: 60,
+        maximumPercent: 40
+    ),
+    .invalidFreshAirInterval(minutes: 0),
+    .invalidDuration(minutes: 0),
+    .invalidTimeRange(
+        lastVentilatedAtMillis: 2,
+        nowMillis: 1
+    ),
+]
 
-    #expect(errors.count == 8)
-    #expect(
-        errors[0] ==
-            .nonFiniteValue(field: "indoor.temperatureC")
-    )
-}
+#expect(errors.count == 10)
+#expect(
+    errors[0] ==
+        .nonFiniteValue(field: "indoor.temperature.value")
+)
 ```
 
-Do not encode errors and do not add throwing behavior.
+Do not add validation or throwing production behavior.
 
-## Task 5: Normalize directories and manifest paths
+## Task 6: Normalize directories and checkpoint
 
 Only after all model tests are green:
 
@@ -418,42 +485,35 @@ git mv Tests/ventilation-advisorTests Tests/VentilationAdvisorTests
 git rm Sources/VentilationAdvisor/ventilation_advisor.swift
 ```
 
-Remove the temporary `path:` arguments from `Package.swift`. SwiftPM must now
-discover both UpperCamelCase directories conventionally.
-
-Run:
+Remove temporary target paths from `Package.swift`, then run:
 
 ```powershell
 & $swift build
 & $swift test
 git diff --check
-rg -n "Int64|ventilation_advisor|ventilation-advisorTests|name: \"ventilation-advisor\"" `
+rg -n "Int64|temperatureC|dewPointC|TempC|temperatureDelta|dewPointDelta|scoreDelta|HumidityMetric|ComfortRange|ventilation_advisor|ventilation-advisorTests" `
     Package.swift Sources Tests
 ```
 
-Expected:
-
-- Build succeeds.
-- All model tests pass.
-- `git diff --check` is clean.
-- The search returns no matches.
+Expected: build and tests pass, the diff check is clean, and the search returns
+no matches.
 
 ## Session acceptance checklist
 
-- [ ] The first RED fails for missing model types, not module discovery.
-- [ ] Product, module, and targets are named `VentilationAdvisor`.
-- [ ] Final source and test directories use UpperCamelCase.
-- [ ] Every public domain model is immutable, Codable, Equatable, and Sendable.
-- [ ] Settings, condition, and input models have explicit public initializers.
-- [ ] `PredictedConditions` and `VentilationAdvice` have no public memberwise
-      initializer.
-- [ ] Enum JSON values match the technical specification exactly.
-- [ ] `ComfortSettings.standard` matches all documented defaults.
-- [ ] Input, prediction, and advice round trips cover optional and nonoptional
-      fields.
-- [ ] `VentilationAdvisorError` exists but no validation behavior is implemented.
-- [ ] Public timestamps and durations use `Int`; no `Int64` remains.
-- [ ] No science, scoring, prediction, explanation, or advisor behavior exists.
+- [ ] The first RED fails for missing models, not source discovery.
+- [ ] Package, product, module, targets, and final directories use the required
+      UpperCamelCase names.
+- [ ] Public models are immutable, Codable, Equatable, and Sendable.
+- [ ] Absolute temperatures use `Measurement<UnitTemperature>`.
+- [ ] Settings and input models have explicit public initializers.
+- [ ] Output models have no public memberwise initializer.
+- [ ] Temperature JSON uses only `CELSIUS`, `FAHRENHEIT`, or `KELVIN`.
+- [ ] Humidity-preference JSON uses the exact discriminator and range shape.
+- [ ] Standard settings are 18...24 C, 40...60% RH, and 180 minutes.
+- [ ] Mixed-unit inputs, ranges, predictions, and advice round-trip exactly.
+- [ ] Advice exposes no temperature, dew-point, or score delta properties.
+- [ ] Errors exist but no validation behavior is implemented.
+- [ ] No scientific, prediction, scoring, or recommendation behavior exists.
 - [ ] `swift build`, `swift test`, and `git diff --check` pass.
 
-**Commit:** `feat: define ventilation advisor models`
+**Commit:** `feat: define unit-aware ventilation advisor models`
