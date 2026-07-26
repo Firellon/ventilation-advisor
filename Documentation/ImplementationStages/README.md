@@ -31,8 +31,8 @@ $swift = "$env:LOCALAPPDATA\Programs\Swift\Toolchains\6.3.3+Asserts\usr\bin\swif
 
 ## Sessions
 
-1. **Package contract and repository intent** — completed in
-   [`TechnicalSpecification.md`](../TechnicalSpecification.md).
+1. [Package contract and repository intent](01-package-contract-and-repository-intent.md)
+   — **completed**
 2. [Package identity and public models](02-package-identity-and-public-models.md)
 3. [Validation and psychrometrics](03-validation-and-psychrometrics.md)
 4. [Range-based comfort scoring](04-range-based-comfort-scoring.md)
@@ -45,6 +45,6 @@ $swift = "$env:LOCALAPPDATA\Programs\Swift\Toolchains\6.3.3+Asserts\usr\bin\swif
 
 If a session reaches its time boundary before all acceptance criteria are green,
 finish the current red-green cycle and stop. Do not start behavior assigned to a
-later session. Record the remaining unchecked acceptance criteria on its GitHub
-issue for the next working block.
+later session. Record the remaining unchecked acceptance criteria in the stage
+document or the active task notes for the next working block.
 

@@ -29,11 +29,12 @@ public struct VentilationAdvisor: Sendable {
    cooler/lower-dew-point reason.
 2. GREEN: compose validation, dew-point resolution, current scoring, candidate
    generation, selection, explanation, and advice mapping through `assess`.
-3. RED: add hot/humid closed conditions and expect `.keepClosed`, zero minutes,
-   the five-minute rejected prediction, and the tied/no-improvement category.
+3. RED: add hot/humid closed conditions and expect `.keepWindowsClosed`, zero
+   minutes, the five-minute rejected prediction, and the tied/no-improvement
+   category.
 4. RED: add four-hours-stale closed conditions and expect `.openWindows`, five
    minutes, and the fresh-air category.
-5. RED: add hot/humid already-open conditions and expect `.closeWindowsNow`, zero
+5. RED: add hot/humid already-open conditions and expect `.closeWindows`, zero
    minutes, and current values as the prediction.
 6. RED: assess 29 C / 45% RH indoors and 24 C / 70% RH outdoors under standard RH
    settings and under 5...15 C dew-point settings; expect 30 and 15 minutes.

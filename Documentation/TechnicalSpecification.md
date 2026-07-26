@@ -32,7 +32,10 @@ below are an intentional Swift-specific design.
 - Supported execution architecture: 64-bit.
 - Third-party dependencies: none.
 - Tests MUST use Swift Testing.
-- Public value types MUST conform to `Codable`, `Equatable`, and `Sendable`.
+- Public domain data models MUST conform to `Codable`, `Equatable`, and
+  `Sendable`.
+- `VentilationAdvisorError` MUST conform to `Error`, `Equatable`, and
+  `Sendable`; errors are not part of the Codable interchange model.
 - Public stateless namespaces MUST be caseless enums.
 - Public APIs MUST use `Int`, not fixed-width integer types, for timestamps,
   intervals, and recommended minutes.
@@ -131,7 +134,6 @@ WindowState
   closed (CLOSED)
   tilted (TILTED)
   open (OPEN)
-  crossVentilation (CROSS_VENTILATION)
 
 VentilationInput
   indoor: IndoorConditions
@@ -143,9 +145,9 @@ VentilationInput
 
 Recommendation
   openWindows (OPEN_WINDOWS)
+  closeWindows (CLOSE_WINDOWS)
   keepWindowsOpen (KEEP_WINDOWS_OPEN)
-  closeWindowsNow (CLOSE_WINDOWS_NOW)
-  keepClosed (KEEP_CLOSED)
+  keepWindowsClosed (KEEP_WINDOWS_CLOSED)
 
 PredictedConditions
   temperatureC: Double
@@ -307,8 +309,13 @@ Air changes per hour:
 CLOSED = 0.0
 TILTED = 0.35
 OPEN = 2.0
-CROSS_VENTILATION = 5.0
 ```
+
+These fixed rates are the initial package approximation. `WindowState`
+describes only the observable opening state; it MUST NOT attempt to encode room
+layout or airflow topology. Estimating ACH from wind conditions and
+apartment-specific calibration is a possible future extension and is outside
+the current package contract.
 
 ```text
 hours = minutes / 60
@@ -332,9 +339,9 @@ Candidate minutes are exactly `5, 10, 15, 30, 60`, in ascending order.
   as a comfort improvement.
 - Improvement while closed produces `OPEN_WINDOWS`.
 - Improvement while non-closed produces `KEEP_WINDOWS_OPEN`.
-- No improvement while closed produces `KEEP_CLOSED`, zero minutes, while
+- No improvement while closed produces `KEEP_WINDOWS_CLOSED`, zero minutes, while
   retaining the best rejected candidate's predicted values and score.
-- No improvement while non-closed produces `CLOSE_WINDOWS_NOW`, zero minutes,
+- No improvement while non-closed produces `CLOSE_WINDOWS`, zero minutes,
   with predicted values and score equal to the current state.
 
 Derived values:
@@ -401,12 +408,13 @@ Required end-to-end cases using standard settings unless specified:
 
 1. Indoor 29 C / 60% RH, outdoor 21 C / 45% RH, closed: `OPEN_WINDOWS`,
    30 minutes, cooler-and-lower-dew-point reason.
-2. Indoor 22 C / 45% RH, outdoor 31 C / 70% RH, closed: `KEEP_CLOSED`, zero
+2. Indoor 22 C / 45% RH, outdoor 31 C / 70% RH, closed:
+   `KEEP_WINDOWS_CLOSED`, zero
    minutes, tied/no-improvement reason, with the five-minute rejected candidate.
 3. Indoor 22 C / 45% RH, outdoor 23 C / 45% RH, closed for four hours:
    `OPEN_WINDOWS`, five minutes, fresh-air reason.
 4. Indoor 22 C / 45% RH, outdoor 31 C / 70% RH, already open:
-   `CLOSE_WINDOWS_NOW`, zero minutes, unchanged prediction.
+   `CLOSE_WINDOWS`, zero minutes, unchanged prediction.
 5. Indoor 29 C / 45% RH, outdoor 24 C / 70% RH: standard RH settings select
    30 minutes; settings using 5...15 C dew point select 15 minutes.
 
@@ -423,4 +431,3 @@ ends with a focused commit.
 
 The stage index and individual handoff documents are maintained in
 [`Documentation/ImplementationStages/`](ImplementationStages/README.md).
-

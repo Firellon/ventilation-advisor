@@ -27,8 +27,8 @@ public enum VentilationPredictor {
 
 ## Red-green-refactor sequence
 
-1. RED: parameterize the four window states and verify their air-change rates are
-   0, 0.35, 2, and 5 ACH through observable mix-factor results.
+1. RED: parameterize the three window states and verify their air-change rates
+   are 0, 0.35, and 2 ACH through observable mix-factor results.
 2. RED: verify the open-window mix factor at 30 minutes equals
    `1 - exp(-2 * 0.5)` within tolerance. Implement the exponential formula.
 3. RED: predict a known indoor/outdoor pair and assert interpolated temperature
@@ -45,6 +45,8 @@ public enum VentilationPredictor {
 ## Acceptance criteria
 
 - Prediction follows the exact exponential air-exchange equation.
+- The initial fixed ACH mapping is `.closed = 0`, `.tilted = 0.35`, and
+  `.open = 2`.
 - All three predicted physical values are returned without display rounding.
 - Supplied and calculated outdoor dew point paths are both tested.
 - The predictor does not generate recommendation candidates or advice.
