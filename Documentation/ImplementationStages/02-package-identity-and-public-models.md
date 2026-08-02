@@ -30,7 +30,8 @@ This stage resolves four API risks before implementation:
 - Third-party dependencies: none; import Foundation for `Measurement` and
   `UnitTemperature`.
 - Public domain models: `Codable`, `Equatable`, `Sendable`.
-- Public errors: `Error`, `Equatable`, `Sendable`; errors are not Codable.
+- Aggregate public errors: `Error`, `Equatable`, `Sendable`; individual public
+  validation issues: `Equatable`, `Sendable`. Neither type is Codable.
 - Stored properties are immutable `let` values.
 - Timestamps, intervals, and recommended minutes use `Int`.
 - Model initializers do not validate, throw, normalize, or clamp values.
@@ -45,7 +46,10 @@ Sources/VentilationAdvisor/Models/ComfortSettings.swift
 Sources/VentilationAdvisor/Models/Conditions.swift
 Sources/VentilationAdvisor/Models/VentilationAdvice.swift
 Sources/VentilationAdvisor/VentilationAdvisorError.swift
-Tests/VentilationAdvisorTests/ModelsTests.swift
+Tests/VentilationAdvisorTests/ComfortSettingsTests.swift
+Tests/VentilationAdvisorTests/ConditionsTests.swift
+Tests/VentilationAdvisorTests/VentilationAdviceTests.swift
+Tests/VentilationAdvisorTests/VentilationAdvisorErrorTests.swift
 ```
 
 Delete the generated test placeholder before the first RED. Delete the generated
@@ -206,16 +210,26 @@ tests using `@testable import VentilationAdvisor`.
 Do not add temperature, dew-point, or score delta properties. They are derived
 values and are outside the public contract.
 
-### Error type
+### Error types
 
-Declare every case in
+Declare the aggregate error and every validation issue in
 [`TechnicalSpecification.md`](../TechnicalSpecification.md#5-validation-and-errors):
 
 ```swift
-public enum VentilationAdvisorError: Error, Equatable, Sendable
+public struct VentilationAdvisorError: Error, Equatable, Sendable {
+    public let issues: [VentilationAdvisorValidationIssue]
+
+    public init(
+        first: VentilationAdvisorValidationIssue,
+        additional: [VentilationAdvisorValidationIssue] = []
+    )
+}
+
+public enum VentilationAdvisorValidationIssue: Equatable, Sendable
 ```
 
-Session 2 defines and compares error values but does not throw them.
+The required first issue prevents empty aggregate errors. Session 2 defines and
+compares error and issue values but does not throw them.
 
 ## Locked temperature JSON
 
@@ -281,7 +295,7 @@ overrides exist in `Package.swift` and none should be added.
 
 - Modify `Package.swift`. — done
 - Delete the generated test placeholder. — done
-- Create `Tests/VentilationAdvisorTests/ModelsTests.swift`. — done
+- Create `Tests/VentilationAdvisorTests/ComfortSettingsTests.swift`. — done
 
 Delete the generated test before adding:
 
@@ -345,7 +359,7 @@ needs more than `==` to prove the original unit survived.
 - Create
   `Sources/VentilationAdvisor/Models/TemperatureMeasurementCoding.swift`.
 - Modify `Sources/VentilationAdvisor/Models/ComfortSettings.swift`.
-- Modify `Tests/VentilationAdvisorTests/ModelsTests.swift`.
+- Modify `Tests/VentilationAdvisorTests/ComfortSettingsTests.swift`.
 
 Use an encoder configured with `.sortedKeys` for exact JSON assertions. RED tests
 must assert:
@@ -368,7 +382,8 @@ extensions where doing so preserves desired synthesized initializers.
 
 - Create `Sources/VentilationAdvisor/Models/Conditions.swift`.
 - Create `Sources/VentilationAdvisor/Models/VentilationAdvice.swift`.
-- Modify `Tests/VentilationAdvisorTests/ModelsTests.swift`.
+- Create `Tests/VentilationAdvisorTests/ConditionsTests.swift`.
+- Create `Tests/VentilationAdvisorTests/VentilationAdviceTests.swift`.
 
 RED: parameterize exact encoding for:
 
@@ -398,9 +413,11 @@ measurement codec.
 
 - Modify all four model files.
 - Create `Sources/VentilationAdvisor/VentilationAdvisorError.swift`.
-- Modify `Tests/VentilationAdvisorTests/ModelsTests.swift`.
+- Modify `Tests/VentilationAdvisorTests/ConditionsTests.swift`.
+- Modify `Tests/VentilationAdvisorTests/VentilationAdviceTests.swift`.
+- Create `Tests/VentilationAdvisorTests/VentilationAdvisorErrorTests.swift`.
 
-Add:
+Add the round-trip helper to each model test file that uses it:
 
 ```swift
 private func roundTrip<T: Codable & Equatable>(_ value: T) throws -> T {
@@ -423,10 +440,12 @@ Input models exercise public initializers. Output tests use internal synthesized
 memberwise initializers through `@testable import`. Implement output Codable in
 extensions so those internal initializers remain available.
 
-Add a compile-time equality test containing all error cases:
+In `VentilationAdvisorErrorTests.swift`, add a compile-time equality test
+containing all validation issue cases and both single- and multiple-issue
+aggregate errors:
 
 ```swift
-let errors: [VentilationAdvisorError] = [
+let issues: [VentilationAdvisorValidationIssue] = [
     .nonFiniteValue(field: "indoor.temperature.value"),
     .unsupportedTemperatureUnit(
         field: "indoor.temperature",
@@ -462,11 +481,20 @@ let errors: [VentilationAdvisorError] = [
     ),
 ]
 
-#expect(errors.count == 10)
+#expect(issues.count == 10)
 #expect(
-    errors[0] ==
+    issues[0] ==
         .nonFiniteValue(field: "indoor.temperature.value")
 )
+
+let singleIssueError = VentilationAdvisorError(first: issues[0])
+let multipleIssueError = VentilationAdvisorError(
+    first: issues[0],
+    additional: Array(issues.dropFirst())
+)
+
+#expect(singleIssueError.issues == [issues[0]])
+#expect(multipleIssueError.issues == issues)
 ```
 
 Do not add validation or throwing production behavior.

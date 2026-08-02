@@ -1,6 +1,17 @@
 import Foundation
 
-public enum VentilationAdvisorError: Error, Equatable, Sendable {
+public struct VentilationAdvisorError: Error, Equatable, Sendable {
+    public let issues: [VentilationAdvisorValidationIssue]
+
+    public init(
+        first: VentilationAdvisorValidationIssue,
+        additional: [VentilationAdvisorValidationIssue] = []
+    ) {
+        issues = [first] + additional
+    }
+}
+
+public enum VentilationAdvisorValidationIssue: Equatable, Sendable {
     case nonFiniteValue(field: String)
     case unsupportedTemperatureUnit(field: String, symbol: String)
     case temperatureOutOfRange(

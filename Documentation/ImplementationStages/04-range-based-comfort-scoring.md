@@ -41,19 +41,23 @@ private enum TemperatureRangeKind {
 private func validatedTemperatureRange(
     _ range: TemperatureRange,
     field: String,
-    kind: TemperatureRangeKind
-) throws -> ClosedRange<Double>
+    kind: TemperatureRangeKind,
+    issues: inout [VentilationAdvisorValidationIssue]
+) -> ClosedRange<Double>?
 
 private func validatedRelativeHumidityRange(
     _ range: RelativeHumidityRange,
-    field: String
-) throws -> ClosedRange<Double>
+    field: String,
+    issues: inout [VentilationAdvisorValidationIssue]
+) -> ClosedRange<Double>?
 ```
 
 The temperature helper validates supported units and finite values, normalizes
 both bounds to Celsius, validates strict ordering and the selected domain, and
-only then constructs a `ClosedRange<Double>`. The RH helper performs the
-corresponding scalar checks. Penalty functions use `lowerBound`, `upperBound`,
+only then constructs a `ClosedRange<Double>`. A failed prerequisite appends its
+issue and returns `nil`. The RH helper performs the corresponding scalar checks.
+The public scorer throws one aggregate error after all independent inputs and
+settings have been checked. Penalty functions use `lowerBound`, `upperBound`,
 and `contains(_:)` on validated ranges.
 
 ## Red-green-refactor sequence
@@ -73,9 +77,10 @@ and `contains(_:)` on validated ranges.
    accepted temperature +2 and +8.
 6. RED: cover unsupported units, non-finite measurements, invalid RH, reversed
    or equal ranges after unit normalization, out-of-domain ranges, and
-   nonpositive fresh-air intervals. Implement both validation helpers so every
-   malformed range throws its typed range error before `ClosedRange<Double>`
-   construction.
+   nonpositive fresh-air intervals. Combine independent failures and expect one
+   aggregate error containing all applicable issues in deterministic order.
+   Implement both validation helpers so malformed ranges are reported before
+   `ClosedRange<Double>` construction.
 7. Refactor the three piecewise calculations into focused internal functions
    that consume validated `ClosedRange<Double>` values; keep `score` as the only
    public scoring entry point.
@@ -85,7 +90,8 @@ and `contains(_:)` on validated ranges.
 - Lower scores consistently mean closer to the selected comfort ranges.
 - Every boundary follows the inclusive/exclusive rules in the specification.
 - RH and dew-point modes can produce different scores for identical conditions.
-- Invalid settings throw typed errors and are never silently normalized.
+- Invalid settings contribute typed issues to one aggregate error and are never
+  silently normalized.
 - Public Codable settings retain their unit-aware range shapes while scoring
   internals use Celsius `ClosedRange<Double>` values.
 - No `ClosedRange<Double>` is constructed before its source bounds pass
