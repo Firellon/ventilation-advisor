@@ -13,6 +13,27 @@ public struct TemperatureRange: Codable, Equatable, Sendable {
     }
 }
 
+extension TemperatureRange {
+    private enum CodingKeys: String, CodingKey {
+        case minimum
+        case maximum
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            minimum: try container.decode(CodedTemperature.self, forKey: .minimum).measurement,
+            maximum: try container.decode(CodedTemperature.self, forKey: .maximum).measurement
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(CodedTemperature(minimum), forKey: .minimum)
+        try container.encode(CodedTemperature(maximum), forKey: .maximum)
+    }
+}
+
 /// A closed range of relative humidity percentages accepted as comfortable.
 public struct RelativeHumidityRange: Codable, Equatable, Sendable {
     public let minimumPercent: Double
@@ -28,6 +49,40 @@ public struct RelativeHumidityRange: Codable, Equatable, Sendable {
 public enum HumidityComfortPreference: Codable, Equatable, Sendable {
     case relativeHumidity(RelativeHumidityRange)
     case dewPoint(TemperatureRange)
+}
+
+extension HumidityComfortPreference {
+    private enum CodingKeys: String, CodingKey {
+        case metric
+        case range
+    }
+
+    private enum Metric: String, Codable {
+        case relativeHumidity = "RELATIVE_HUMIDITY"
+        case dewPoint = "DEW_POINT"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        switch try container.decode(Metric.self, forKey: .metric) {
+        case .relativeHumidity:
+            self = .relativeHumidity(try container.decode(RelativeHumidityRange.self, forKey: .range))
+        case .dewPoint:
+            self = .dewPoint(try container.decode(TemperatureRange.self, forKey: .range))
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .relativeHumidity(let range):
+            try container.encode(Metric.relativeHumidity, forKey: .metric)
+            try container.encode(range, forKey: .range)
+        case .dewPoint(let range):
+            try container.encode(Metric.dewPoint, forKey: .metric)
+            try container.encode(range, forKey: .range)
+        }
+    }
 }
 
 /// The caller-owned comfort contract the advisor scores conditions against.
