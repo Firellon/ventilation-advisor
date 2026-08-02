@@ -1,9 +1,9 @@
 import Foundation
 import Testing
 
-@testable import VentilationAdvisor
+import VentilationAdvisor
 
-struct ModelsTests {
+struct ComfortSettingsTests {
     
     let settings = ComfortSettings.standard
     
