@@ -23,6 +23,10 @@ struct CodedTemperature: Codable {
         case fahrenheit = "FAHRENHEIT"
         case kelvin = "KELVIN"
 
+        /// Maps a Foundation unit onto the wire enum.
+        ///
+        /// `UnitTemperature` is a class rather than an enum, so this switch cannot be
+        /// exhaustive; anything outside the three supported cases fails encoding.
         init(_ unit: UnitTemperature) throws {
             switch unit {
             case .celsius: self = .celsius
