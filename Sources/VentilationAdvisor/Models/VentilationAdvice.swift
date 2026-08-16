@@ -23,7 +23,7 @@ extension PredictedConditions {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         temperature = try container.decode(CodedTemperature.self, forKey: .temperature).measurement
-        relativeHumidityPercent = try container.decode(Double.self, forKey: .relativeHumidityPercent)
+        relativeHumidityPercent = try container.decodeRelativeHumidity(forKey: .relativeHumidityPercent)
         dewPoint = try container.decode(CodedTemperature.self, forKey: .dewPoint).measurement
     }
 
@@ -77,13 +77,13 @@ extension VentilationAdvice {
         recommendation = try container.decode(Recommendation.self, forKey: .recommendation)
         recommendedMinutes = try container.decode(Int.self, forKey: .recommendedMinutes)
         currentIndoorTemperature = try container.decode(CodedTemperature.self, forKey: .currentIndoorTemperature).measurement
-        currentIndoorRelativeHumidityPercent = try container.decode(Double.self, forKey: .currentIndoorRelativeHumidityPercent)
+        currentIndoorRelativeHumidityPercent = try container.decodeRelativeHumidity(forKey: .currentIndoorRelativeHumidityPercent)
         currentIndoorDewPoint = try container.decode(CodedTemperature.self, forKey: .currentIndoorDewPoint).measurement
         outdoorTemperature = try container.decode(CodedTemperature.self, forKey: .outdoorTemperature).measurement
-        outdoorRelativeHumidityPercent = try container.decode(Double.self, forKey: .outdoorRelativeHumidityPercent)
+        outdoorRelativeHumidityPercent = try container.decodeRelativeHumidity(forKey: .outdoorRelativeHumidityPercent)
         outdoorDewPoint = try container.decode(CodedTemperature.self, forKey: .outdoorDewPoint).measurement
         predictedTemperature = try container.decode(CodedTemperature.self, forKey: .predictedTemperature).measurement
-        predictedRelativeHumidityPercent = try container.decode(Double.self, forKey: .predictedRelativeHumidityPercent)
+        predictedRelativeHumidityPercent = try container.decodeRelativeHumidity(forKey: .predictedRelativeHumidityPercent)
         predictedDewPoint = try container.decode(CodedTemperature.self, forKey: .predictedDewPoint).measurement
         currentScore = try container.decode(Double.self, forKey: .currentScore)
         predictedScore = try container.decode(Double.self, forKey: .predictedScore)

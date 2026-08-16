@@ -36,6 +36,39 @@ struct ConditionsTests {
         #expect(decodedOutdoor.dewPoint?.value == 3)
     }
 
+    @Test(arguments: [0.0, -1.0, 100.1])
+    func indoorConditionsRejectInvalidRelativeHumidityWhenDecoding(
+        relativeHumidityPercent: Double
+    ) {
+        let json = Data("""
+        {
+          "temperature": {"value": 20, "unit": "CELSIUS"},
+          "relativeHumidityPercent": \(relativeHumidityPercent)
+        }
+        """.utf8)
+
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(IndoorConditions.self, from: json)
+        }
+    }
+
+    @Test(arguments: [0.0, -1.0, 100.1])
+    func outdoorConditionsRejectInvalidRelativeHumidityWhenDecoding(
+        relativeHumidityPercent: Double
+    ) {
+        let json = Data("""
+        {
+          "temperature": {"value": 10, "unit": "CELSIUS"},
+          "relativeHumidityPercent": \(relativeHumidityPercent),
+          "dewPoint": null
+        }
+        """.utf8)
+
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(OutdoorConditions.self, from: json)
+        }
+    }
+
     private func roundTrip<T: Codable & Equatable>(_ value: T) throws -> T {
         let data = try JSONEncoder().encode(value)
         return try JSONDecoder().decode(T.self, from: data)

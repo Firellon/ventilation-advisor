@@ -23,7 +23,7 @@ extension IndoorConditions {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
             temperature: try container.decode(CodedTemperature.self, forKey: .temperature).measurement,
-            relativeHumidityPercent: try container.decode(Double.self, forKey: .relativeHumidityPercent)
+            relativeHumidityPercent: try container.decodeRelativeHumidity(forKey: .relativeHumidityPercent)
         )
     }
 
@@ -61,7 +61,7 @@ extension OutdoorConditions {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
             temperature: try container.decode(CodedTemperature.self, forKey: .temperature).measurement,
-            relativeHumidityPercent: try container.decode(Double.self, forKey: .relativeHumidityPercent),
+            relativeHumidityPercent: try container.decodeRelativeHumidity(forKey: .relativeHumidityPercent),
             dewPoint: try container.decodeIfPresent(CodedTemperature.self, forKey: .dewPoint)?.measurement
         )
     }
