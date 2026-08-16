@@ -45,27 +45,38 @@ public enum DewPointCalculator {
    different supported units. Implement inverse RH in Celsius and clamp only
    its calculated result to `0...100`.
 3. RED: parameterize non-finite measurement values, RH, and dew-point values and
-   expect
-   `.nonFiniteValue` with the correct field name.
+   expect a `VentilationAdvisorError` whose issues contain `.nonFiniteValue`
+   with the correct field name.
 4. RED: construct a custom `UnitTemperature` and expect
-   `.unsupportedTemperatureUnit` before any conversion.
+   `.unsupportedTemperatureUnit` as the aggregate error's first issue before
+   any conversion.
 5. RED: parameterize Celsius-, Fahrenheit-, and Kelvin-expressed temperatures
-   physically below -50 C and above 80 C and expect `.temperatureOutOfRange`
-   carrying the original measurement.
+   physically below -50 C and above 80 C and expect `.temperatureOutOfRange` in
+   the aggregate error, carrying the original measurement.
 6. RED: test RH of 0, negative RH, and RH above 100 and expect
-   `.relativeHumidityOutOfRange`.
+   `.relativeHumidityOutOfRange` in the aggregate error.
 7. RED: test mixed-unit dew point above temperature and dew point at or below
-   -237.7 C and expect `.invalidDewPoint` with original measurements.
-8. Refactor shared validation into `InputValidator`, including one internal
-   helper that validates a supported measurement and returns its Celsius
-   `Double`. Rerun all tests after every extraction.
+   -237.7 C and expect `.invalidDewPoint` with original measurements in the
+   aggregate error.
+8. RED: pass inputs containing multiple independent invalid values and expect
+   all corresponding issues in deterministic parameter order. Verify checks
+   requiring an invalid prerequisite are skipped while unrelated checks run.
+9. Refactor shared validation into `InputValidator`. Its internal measurement
+   helper appends issues to an `inout [VentilationAdvisorValidationIssue]` and
+   returns an optional Celsius `Double`; it returns `nil` when failed
+   prerequisites make normalization unsafe. Public operations throw only after
+   all independent parameters have been checked. Rerun all tests after every
+   extraction.
 
 ## Acceptance criteria
 
 - Both public calculations match the specification within tolerance.
 - Celsius, Fahrenheit, and Kelvin inputs produce equivalent physics.
 - Dew-point output preserves the input temperature's unit.
-- Every invalid caller value throws the documented error rather than trapping.
+- Every invalid caller value contributes its documented issue, and public
+  operations throw one nonempty aggregate error rather than trapping.
+- Multiple independent invalid values are reported together in deterministic
+  order without cascading issues from failed prerequisites.
 - No comfort scoring or ventilation prediction is introduced.
 - `swift build`, `swift test`, and `git diff --check` pass.
 

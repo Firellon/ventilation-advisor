@@ -41,9 +41,11 @@ public enum VentilationPredictor {
 5. RED: assert predicted RH equals inverse Magnus for predicted temperature and
    dew point. Add RH reconstruction.
 6. RED: assert `.closed` returns unchanged conditions and nonpositive minutes
-   throw `.invalidDuration`.
+   produce an aggregate error containing `.invalidDuration`.
 7. RED: cover invalid indoor/outdoor conditions and inconsistent supplied dew
-   point, including unsupported units, using typed errors from Session 3.
+   point, including unsupported units, using aggregate errors from Session 3.
+   Combine independent invalid values and assert all applicable issues appear in
+   deterministic model-property order.
 
 ## Acceptance criteria
 

@@ -37,7 +37,8 @@ below are an intentional Swift-specific design.
 - Public domain data models MUST conform to `Codable`, `Equatable`, and
   `Sendable`.
 - `VentilationAdvisorError` MUST conform to `Error`, `Equatable`, and
-  `Sendable`; errors are not part of the Codable interchange model.
+  `Sendable`. `VentilationAdvisorValidationIssue` MUST conform to `Equatable`
+  and `Sendable`. Neither type is part of the Codable interchange model.
 - Public stateless namespaces MUST be caseless enums.
 - Public APIs MUST use `Int`, not fixed-width integer types, for timestamps,
   intervals, and recommended minutes.
@@ -213,15 +214,26 @@ Example comfort-settings JSON:
 
 ## 5. Validation and errors
 
-Public advisor, predictor, scorer, and psychrometric operations MUST throw
-`VentilationAdvisorError`; they MUST NOT trap or silently repair invalid caller
-data. Codable failures use the standard `EncodingError` and `DecodingError`
-required by those protocols.
+Public advisor, predictor, scorer, and psychrometric operations MUST collect all
+independent validation issues and throw one `VentilationAdvisorError`; they MUST
+NOT trap or silently repair invalid caller data. Codable failures use the
+standard `EncodingError` and `DecodingError` required by those protocols.
 
-Required error categories:
+The thrown error has one stable shape whether validation finds one issue or
+several. Its public initializer requires a first issue so an empty validation
+error cannot be constructed:
 
 ```swift
-public enum VentilationAdvisorError: Error, Equatable, Sendable {
+public struct VentilationAdvisorError: Error, Equatable, Sendable {
+    public let issues: [VentilationAdvisorValidationIssue]
+
+    public init(
+        first: VentilationAdvisorValidationIssue,
+        additional: [VentilationAdvisorValidationIssue] = []
+    )
+}
+
+public enum VentilationAdvisorValidationIssue: Equatable, Sendable {
     case nonFiniteValue(field: String)
     case unsupportedTemperatureUnit(field: String, symbol: String)
     case temperatureOutOfRange(
@@ -249,11 +261,25 @@ public enum VentilationAdvisorError: Error, Equatable, Sendable {
 }
 ```
 
+Validation collection rules:
+
+- Issues MUST be flat, contain no duplicate report of the same invalid
+  condition, and follow deterministic public parameter and model-property order.
+- Validation MUST continue across independent fields after finding an issue.
+- A check whose prerequisite is invalid MUST be skipped. For example, a
+  measurement with an unsupported unit adds `unsupportedTemperatureUnit`, but
+  checks requiring Celsius conversion of that measurement do not run.
+- If validation produces at least one issue, the public operation MUST throw one
+  `VentilationAdvisorError` before performing scientific, scoring, prediction,
+  or recommendation calculations.
+- `VentilationAdvisorValidationIssue` MUST NOT conform to `Error`; public
+  operations throw only the aggregate error.
+
 Rules:
 
 - All floating-point inputs and measurement values MUST be finite.
 - Supported temperature units are Celsius, Fahrenheit, and Kelvin. Custom
-  `UnitTemperature` values MUST throw `unsupportedTemperatureUnit`.
+  `UnitTemperature` values MUST add `unsupportedTemperatureUnit`.
 - Absolute temperatures MUST be converted to Celsius for validation and MUST
   be in `-50...80` C.
 - RH MUST satisfy `0 < RH <= 100`.
