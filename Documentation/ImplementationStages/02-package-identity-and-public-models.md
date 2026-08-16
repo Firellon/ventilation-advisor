@@ -376,7 +376,9 @@ GREEN: implement the internal measurement codec and custom Codable for
 `TemperatureRange` and `HumidityComfortPreference`. Custom coding belongs in
 extensions where doing so preserves desired synthesized initializers.
 
-## Task 4: Add conditions and enum wire values
+## Task 4: Add conditions and enum wire values — DONE
+
+**Status:** Complete. Condition, input, prediction, and advice shapes now use the locked public contract; temperature fields preserve supported units through the shared wire codec, and enum wire-value tests pass.
 
 **Files:**
 
