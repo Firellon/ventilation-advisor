@@ -42,8 +42,8 @@ public enum VentilationPredictor {
    dew point. Add RH reconstruction.
 6. RED: assert `.closed` returns unchanged conditions and nonpositive minutes
    produce an aggregate error containing `.invalidDuration`.
-7. RED: cover invalid indoor/outdoor conditions and inconsistent supplied dew
-   point, including unsupported units, using aggregate errors from Session 3.
+7. RED: cover invalid indoor/outdoor conditions, including unsupported units,
+   using aggregate errors from Session 3.
    Combine independent invalid values and assert all applicable issues appear in
    deterministic model-property order.
 

@@ -37,16 +37,13 @@ extension IndoorConditions {
 public struct OutdoorConditions: Codable, Equatable, Sendable {
     public let temperature: Measurement<UnitTemperature>
     public let relativeHumidityPercent: Double
-    public let dewPoint: Measurement<UnitTemperature>?
 
     public init(
         temperature: Measurement<UnitTemperature>,
-        relativeHumidityPercent: Double,
-        dewPoint: Measurement<UnitTemperature>?
+        relativeHumidityPercent: Double
     ) {
         self.temperature = temperature
         self.relativeHumidityPercent = relativeHumidityPercent
-        self.dewPoint = dewPoint
     }
 }
 
@@ -54,15 +51,13 @@ extension OutdoorConditions {
     private enum CodingKeys: String, CodingKey {
         case temperature
         case relativeHumidityPercent
-        case dewPoint
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
             temperature: try container.decode(CodedTemperature.self, forKey: .temperature).measurement,
-            relativeHumidityPercent: try container.decodeRelativeHumidity(forKey: .relativeHumidityPercent),
-            dewPoint: try container.decodeIfPresent(CodedTemperature.self, forKey: .dewPoint)?.measurement
+            relativeHumidityPercent: try container.decodeRelativeHumidity(forKey: .relativeHumidityPercent)
         )
     }
 
@@ -70,7 +65,6 @@ extension OutdoorConditions {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(CodedTemperature(temperature), forKey: .temperature)
         try container.encode(relativeHumidityPercent, forKey: .relativeHumidityPercent)
-        try container.encodeIfPresent(dewPoint.map(CodedTemperature.init), forKey: .dewPoint)
     }
 }
 

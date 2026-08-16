@@ -133,7 +133,6 @@ IndoorConditions
 OutdoorConditions
   temperature: Measurement<UnitTemperature>
   relativeHumidityPercent: Double
-  dewPoint: Measurement<UnitTemperature>?
 
 WindowState
   closed (CLOSED)
@@ -297,8 +296,8 @@ Rules:
 - `nowMillis` and a non-nil `lastVentilatedAtMillis` MUST be nonnegative, and
   the last-ventilated time MUST be no later than `nowMillis`.
 
-If outdoor dew point is absent, the advisor and predictor MUST calculate it. If
-it is present, they MUST validate and use the supplied value.
+The advisor and predictor MUST calculate outdoor dew point from outdoor
+temperature and relative humidity. Callers do not supply outdoor dew point.
 
 All public operations MUST normalize supported temperature measurements to
 Celsius before scientific calculations. Standalone dew-point calculation

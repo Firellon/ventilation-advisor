@@ -133,12 +133,10 @@ public struct IndoorConditions: Codable, Equatable, Sendable {
 public struct OutdoorConditions: Codable, Equatable, Sendable {
     public let temperature: Measurement<UnitTemperature>
     public let relativeHumidityPercent: Double
-    public let dewPoint: Measurement<UnitTemperature>?
 
     public init(
         temperature: Measurement<UnitTemperature>,
-        relativeHumidityPercent: Double,
-        dewPoint: Measurement<UnitTemperature>?
+        relativeHumidityPercent: Double
     )
 }
 
@@ -405,7 +403,7 @@ RED: parameterize exact encoding for:
 ```
 
 Also construct `IndoorConditions` in Fahrenheit and `OutdoorConditions` in
-Kelvin with a Celsius dew point. Expected RED: these types do not exist. GREEN:
+Kelvin. Expected RED: these types do not exist. GREEN:
 add the exact declarations and custom Codable extensions using the shared
 measurement codec.
 
@@ -431,9 +429,8 @@ private func roundTrip<T: Codable & Equatable>(_ value: T) throws -> T {
 RED then GREEN one representative value at a time:
 
 1. `VentilationInput` with Fahrenheit indoor temperature, Kelvin outdoor
-   temperature, Celsius supplied dew point, mixed-unit temperature bounds, and
-   non-nil time metadata.
-2. `VentilationInput` with nil outdoor dew point and nil last-ventilated time.
+   temperature, mixed-unit temperature bounds, and non-nil time metadata.
+2. `VentilationInput` with nil last-ventilated time.
 3. `PredictedConditions` with Fahrenheit temperature and dew point.
 4. `VentilationAdvice` with every property assigned a distinct value and no
    delta properties.

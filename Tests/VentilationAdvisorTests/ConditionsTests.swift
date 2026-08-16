@@ -21,8 +21,7 @@ struct ConditionsTests {
         )
         let outdoor = OutdoorConditions(
             temperature: Measurement(value: 280, unit: .kelvin),
-            relativeHumidityPercent: 70,
-            dewPoint: Measurement(value: 3, unit: .celsius)
+            relativeHumidityPercent: 70
         )
 
         let decodedIndoor = try roundTrip(indoor)
@@ -32,8 +31,6 @@ struct ConditionsTests {
         #expect(decodedIndoor.temperature.value == 68)
         #expect(decodedOutdoor.temperature.unit == .kelvin)
         #expect(decodedOutdoor.temperature.value == 280)
-        #expect(decodedOutdoor.dewPoint?.unit == .celsius)
-        #expect(decodedOutdoor.dewPoint?.value == 3)
     }
 
     @Test(arguments: [0.0, -1.0, 100.1])
@@ -59,8 +56,7 @@ struct ConditionsTests {
         let json = Data("""
         {
           "temperature": {"value": 10, "unit": "CELSIUS"},
-          "relativeHumidityPercent": \(relativeHumidityPercent),
-          "dewPoint": null
+          "relativeHumidityPercent": \(relativeHumidityPercent)
         }
         """.utf8)
 
