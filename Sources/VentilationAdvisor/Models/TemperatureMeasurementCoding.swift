@@ -75,3 +75,20 @@ struct CodedTemperature: Codable {
         try container.encode(wireUnit.rawValue, forKey: .unit)
     }
 }
+
+
+extension KeyedDecodingContainer {
+    func decodeRelativeHumidity(forKey key: Key) throws -> Double {
+        let value = try decode(Double.self, forKey: key)
+
+        guard value.isFinite, value > 0, value <= 100 else {
+            throw DecodingError.dataCorruptedError(
+                forKey: key,
+                in: self,
+                debugDescription: "Relative humidity must be finite and greater than 0 through 100 percent."
+            )
+        }
+
+        return value
+    }
+}
