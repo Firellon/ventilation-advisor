@@ -33,6 +33,68 @@ struct ConditionsTests {
         #expect(decodedOutdoor.temperature.value == 280)
     }
 
+    @Test("ventilation input round-trip preserves every value and temperature unit")
+    func ventilationInputRoundTripPreservesValuesAndUnits() throws {
+        let input = VentilationInput(
+            indoor: IndoorConditions(
+                temperature: Measurement(value: 68, unit: .fahrenheit),
+                relativeHumidityPercent: 45
+            ),
+            outdoor: OutdoorConditions(
+                temperature: Measurement(value: 280, unit: .kelvin),
+                relativeHumidityPercent: 70,
+                dewPoint: Measurement(value: 3, unit: .celsius)
+            ),
+            windowState: .open,
+            comfortSettings: ComfortSettings(
+                temperatureRange: TemperatureRange(
+                    minimum: Measurement(value: 64, unit: .fahrenheit),
+                    maximum: Measurement(value: 297, unit: .kelvin)
+                ),
+                humidityPreference: .relativeHumidity(
+                    RelativeHumidityRange(minimumPercent: 40, maximumPercent: 60)
+                ),
+                freshAirIntervalMinutes: 180
+            ),
+            lastVentilatedAtMillis: 1_725_000_000_000,
+            nowMillis: 1_725_000_900_000
+        )
+
+        let decoded = try roundTrip(input)
+
+        #expect(decoded == input)
+        #expect(decoded.indoor.temperature.unit == .fahrenheit)
+        #expect(decoded.outdoor.temperature.unit == .kelvin)
+        #expect(decoded.outdoor.dewPoint?.unit == .celsius)
+        #expect(decoded.comfortSettings.temperatureRange.minimum.unit == .fahrenheit)
+        #expect(decoded.comfortSettings.temperatureRange.maximum.unit == .kelvin)
+    }
+
+    @Test("ventilation input round-trip preserves absent optional values")
+    func ventilationInputRoundTripPreservesAbsentOptionals() throws {
+        let input = VentilationInput(
+            indoor: IndoorConditions(
+                temperature: Measurement(value: 21, unit: .celsius),
+                relativeHumidityPercent: 50
+            ),
+            outdoor: OutdoorConditions(
+                temperature: Measurement(value: 12, unit: .celsius),
+                relativeHumidityPercent: 65,
+                dewPoint: nil
+            ),
+            windowState: .closed,
+            comfortSettings: .standard,
+            lastVentilatedAtMillis: nil,
+            nowMillis: 1_725_000_900_000
+        )
+
+        let decoded = try roundTrip(input)
+
+        #expect(decoded == input)
+        #expect(decoded.outdoor.dewPoint == nil)
+        #expect(decoded.lastVentilatedAtMillis == nil)
+    }
+
     @Test(arguments: [0.0, -1.0, 100.1])
     func indoorConditionsRejectInvalidRelativeHumidityWhenDecoding(
         relativeHumidityPercent: Double
