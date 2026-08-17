@@ -33,7 +33,7 @@ This stage resolves four API risks before implementation:
 - Aggregate public errors: `Error`, `Equatable`, `Sendable`; individual public
   validation issues: `Equatable`, `Sendable`. Neither type is Codable.
 - Stored properties are immutable `let` values.
-- Timestamps, intervals, and recommended minutes use `Int`.
+- Instants use `Date`; intervals and recommended minutes use `Int`.
 - Model initializers do not validate, throw, normalize, or clamp values.
 - Validation and Celsius normalization begin in Session 3.
 
@@ -133,12 +133,10 @@ public struct IndoorConditions: Codable, Equatable, Sendable {
 public struct OutdoorConditions: Codable, Equatable, Sendable {
     public let temperature: Measurement<UnitTemperature>
     public let relativeHumidityPercent: Double
-    public let dewPoint: Measurement<UnitTemperature>?
 
     public init(
         temperature: Measurement<UnitTemperature>,
-        relativeHumidityPercent: Double,
-        dewPoint: Measurement<UnitTemperature>?
+        relativeHumidityPercent: Double
     )
 }
 
@@ -153,16 +151,16 @@ public struct VentilationInput: Codable, Equatable, Sendable {
     public let outdoor: OutdoorConditions
     public let windowState: WindowState
     public let comfortSettings: ComfortSettings
-    public let lastVentilatedAtMillis: Int?
-    public let nowMillis: Int
+    public let lastVentilatedAt: Date?
+    public let now: Date
 
     public init(
         indoor: IndoorConditions,
         outdoor: OutdoorConditions,
         windowState: WindowState,
         comfortSettings: ComfortSettings,
-        lastVentilatedAtMillis: Int?,
-        nowMillis: Int
+        lastVentilatedAt: Date?,
+        now: Date = .now
     )
 }
 ```
@@ -376,7 +374,9 @@ GREEN: implement the internal measurement codec and custom Codable for
 `TemperatureRange` and `HumidityComfortPreference`. Custom coding belongs in
 extensions where doing so preserves desired synthesized initializers.
 
-## Task 4: Add conditions and enum wire values
+## Task 4: Add conditions and enum wire values — DONE
+
+**Status:** Complete. Condition, input, prediction, and advice shapes now use the locked public contract; temperature fields preserve supported units through the shared wire codec, and enum wire-value tests pass.
 
 **Files:**
 
@@ -403,7 +403,7 @@ RED: parameterize exact encoding for:
 ```
 
 Also construct `IndoorConditions` in Fahrenheit and `OutdoorConditions` in
-Kelvin with a Celsius dew point. Expected RED: these types do not exist. GREEN:
+Kelvin. Expected RED: these types do not exist. GREEN:
 add the exact declarations and custom Codable extensions using the shared
 measurement codec.
 
@@ -429,9 +429,8 @@ private func roundTrip<T: Codable & Equatable>(_ value: T) throws -> T {
 RED then GREEN one representative value at a time:
 
 1. `VentilationInput` with Fahrenheit indoor temperature, Kelvin outdoor
-   temperature, Celsius supplied dew point, mixed-unit temperature bounds, and
-   non-nil time metadata.
-2. `VentilationInput` with nil outdoor dew point and nil last-ventilated time.
+   temperature, mixed-unit temperature bounds, and non-nil time metadata.
+2. `VentilationInput` with nil last-ventilated time.
 3. `PredictedConditions` with Fahrenheit temperature and dew point.
 4. `VentilationAdvice` with every property assigned a distinct value and no
    delta properties.
@@ -476,8 +475,8 @@ let issues: [VentilationAdvisorValidationIssue] = [
     .invalidFreshAirInterval(minutes: 0),
     .invalidDuration(minutes: 0),
     .invalidTimeRange(
-        lastVentilatedAtMillis: 2,
-        nowMillis: 1
+        lastVentilatedAt: Date(timeIntervalSince1970: 2),
+        now: Date(timeIntervalSince1970: 1)
     ),
 ]
 

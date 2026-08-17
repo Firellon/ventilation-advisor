@@ -28,7 +28,8 @@ repository intent, and divided future work into one-hour TDD stages.
 
 - [x] Defined a Swift 6.3 package named `VentilationAdvisor`.
 - [x] Limited the package to platform-independent domain and scientific logic.
-- [x] Required Swift `Int` for timestamp and duration values on 64-bit targets.
+- [x] Required `Date` for instants and Swift `Int` for duration values on 64-bit
+      targets.
 - [x] Defined Codable public domain models and typed public errors.
 - [x] Recorded Magnus formulas, configurable scoring bands, ACH prediction, and
       deterministic recommendation behavior.
