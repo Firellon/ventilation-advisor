@@ -40,8 +40,8 @@ below are an intentional Swift-specific design.
   `Sendable`. `VentilationAdvisorValidationIssue` MUST conform to `Equatable`
   and `Sendable`. Neither type is part of the Codable interchange model.
 - Public stateless namespaces MUST be caseless enums.
-- Public APIs MUST use `Int`, not fixed-width integer types, for timestamps,
-  intervals, and recommended minutes.
+- Public APIs MUST use `Date` for instants and `Int`, not fixed-width integer
+  types, for intervals and recommended minutes.
 
 Suggested source responsibilities:
 
@@ -144,8 +144,8 @@ VentilationInput
   outdoor: OutdoorConditions
   windowState: WindowState
   comfortSettings: ComfortSettings
-  lastVentilatedAtMillis: Int?
-  nowMillis: Int
+  lastVentilatedAt: Date?
+  now: Date
 
 Recommendation
   openWindows (OPEN_WINDOWS)
@@ -256,7 +256,7 @@ public enum VentilationAdvisorValidationIssue: Equatable, Sendable {
     )
     case invalidFreshAirInterval(minutes: Int)
     case invalidDuration(minutes: Int)
-    case invalidTimeRange(lastVentilatedAtMillis: Int?, nowMillis: Int)
+    case invalidTimeRange(lastVentilatedAt: Date?, now: Date)
 }
 ```
 
@@ -293,8 +293,7 @@ Rules:
   80 C.
 - A non-nil fresh-air interval MUST be greater than zero.
 - Prediction minutes MUST be greater than zero.
-- `nowMillis` and a non-nil `lastVentilatedAtMillis` MUST be nonnegative, and
-  the last-ventilated time MUST be no later than `nowMillis`.
+- A non-nil `lastVentilatedAt` MUST be no later than `now`.
 
 The advisor and predictor MUST calculate outdoor dew point from outdoor
 temperature and relative humidity. Callers do not supply outdoor dew point.
@@ -434,7 +433,7 @@ The override applies only when all conditions hold:
 
 - windows are closed;
 - `freshAirIntervalMinutes` is non-nil;
-- `lastVentilatedAtMillis` is non-nil;
+- `lastVentilatedAt` is non-nil;
 - elapsed time is at least the configured interval;
 - the best candidate does not improve comfort;
 - outside air is not extremely unfavorable.

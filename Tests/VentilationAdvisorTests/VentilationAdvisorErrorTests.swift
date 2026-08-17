@@ -34,7 +34,10 @@ func documentedValidationIssuesAreConstructibleAndEquatable() {
         ),
         .invalidFreshAirInterval(minutes: 0),
         .invalidDuration(minutes: 0),
-        .invalidTimeRange(lastVentilatedAtMillis: 2, nowMillis: 1),
+        .invalidTimeRange(
+            lastVentilatedAt: Date(timeIntervalSince1970: 2),
+            now: Date(timeIntervalSince1970: 1)
+        ),
     ]
 
     #expect(issues.count == 10)

@@ -55,7 +55,7 @@ public enum VentilationAdvisorValidationIssue: Equatable, Sendable {
     )
     case invalidFreshAirInterval(minutes: Int)
     case invalidDuration(minutes: Int)
-    case invalidTimeRange(lastVentilatedAtMillis: Int?, nowMillis: Int)
+    case invalidTimeRange(lastVentilatedAt: Date?, now: Date)
 }
 ```
 
@@ -101,7 +101,7 @@ a form field.
 - Do not introduce networking, persistence, sensor, permission, or UI errors.
 - Do not add a generic internal or calculation error that could hide a package
   defect.
-- Associated timestamps, intervals, and durations use `Int`.
+- Associated instants use `Date`; intervals and durations use `Int`.
 - Neither public validation type conforms to `Codable`.
 
 ## Verification

@@ -35,5 +35,5 @@ public enum VentilationAdvisorValidationIssue: Equatable, Sendable {
     )
     case invalidFreshAirInterval(minutes: Int)
     case invalidDuration(minutes: Int)
-    case invalidTimeRange(lastVentilatedAtMillis: Int?, nowMillis: Int)
+    case invalidTimeRange(lastVentilatedAt: Date?, now: Date)
 }

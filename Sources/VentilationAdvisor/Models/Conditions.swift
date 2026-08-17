@@ -79,22 +79,22 @@ public struct VentilationInput: Codable, Equatable, Sendable {
     public let outdoor: OutdoorConditions
     public let windowState: WindowState
     public let comfortSettings: ComfortSettings
-    public let lastVentilatedAtMillis: Int?
-    public let nowMillis: Int
+    public let lastVentilatedAt: Date?
+    public let now: Date
 
     public init(
         indoor: IndoorConditions,
         outdoor: OutdoorConditions,
         windowState: WindowState,
         comfortSettings: ComfortSettings,
-        lastVentilatedAtMillis: Int?,
-        nowMillis: Int
+        lastVentilatedAt: Date?,
+        now: Date = .now
     ) {
         self.indoor = indoor
         self.outdoor = outdoor
         self.windowState = windowState
         self.comfortSettings = comfortSettings
-        self.lastVentilatedAtMillis = lastVentilatedAtMillis
-        self.nowMillis = nowMillis
+        self.lastVentilatedAt = lastVentilatedAt
+        self.now = now
     }
 }

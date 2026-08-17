@@ -33,7 +33,7 @@ This stage resolves four API risks before implementation:
 - Aggregate public errors: `Error`, `Equatable`, `Sendable`; individual public
   validation issues: `Equatable`, `Sendable`. Neither type is Codable.
 - Stored properties are immutable `let` values.
-- Timestamps, intervals, and recommended minutes use `Int`.
+- Instants use `Date`; intervals and recommended minutes use `Int`.
 - Model initializers do not validate, throw, normalize, or clamp values.
 - Validation and Celsius normalization begin in Session 3.
 
@@ -151,16 +151,16 @@ public struct VentilationInput: Codable, Equatable, Sendable {
     public let outdoor: OutdoorConditions
     public let windowState: WindowState
     public let comfortSettings: ComfortSettings
-    public let lastVentilatedAtMillis: Int?
-    public let nowMillis: Int
+    public let lastVentilatedAt: Date?
+    public let now: Date
 
     public init(
         indoor: IndoorConditions,
         outdoor: OutdoorConditions,
         windowState: WindowState,
         comfortSettings: ComfortSettings,
-        lastVentilatedAtMillis: Int?,
-        nowMillis: Int
+        lastVentilatedAt: Date?,
+        now: Date = .now
     )
 }
 ```
@@ -475,8 +475,8 @@ let issues: [VentilationAdvisorValidationIssue] = [
     .invalidFreshAirInterval(minutes: 0),
     .invalidDuration(minutes: 0),
     .invalidTimeRange(
-        lastVentilatedAtMillis: 2,
-        nowMillis: 1
+        lastVentilatedAt: Date(timeIntervalSince1970: 2),
+        now: Date(timeIntervalSince1970: 1)
     ),
 ]
 

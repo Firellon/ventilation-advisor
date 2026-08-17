@@ -29,8 +29,8 @@ Tests/VentilationAdvisorTests/ExplanationTests.swift
    temperature is physically over 5 C warmer and outside dew point is
    physically over 3 C higher; test each condition alone too. Normalize to
    Celsius before calculating these internal differences.
-6. RED: cover negative timestamps, future last-ventilated time, and overflow-safe
-   conversion of interval minutes to milliseconds.
+6. RED: cover future last-ventilated time and compare the configured interval
+   against the elapsed `Date` duration without integer conversion.
 
 ### Explanation builder
 
